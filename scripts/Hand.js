@@ -22,21 +22,18 @@ class Hand {
 
     draw() {
 
-        ctx.save();
-        ctx.translate(this.xStart, this.yStart);
-        ctx.rotate(this.angleContainer.value)
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, -this.length);
-        ctx.stroke();
+        push();
+        rotate(this.angleContainer.value)
+        line(0, 0, 0, -this.length);
         
-        ctx.translate(0, -this.length);
+        translate(0, -this.length);
 
         if (this.childExists) {
             this.slowerChildHand.draw();
             this.fasterChildHand.draw();
         }
         
-        ctx.restore();
+        pop();
     }
 
 }

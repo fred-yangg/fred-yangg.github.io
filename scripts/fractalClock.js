@@ -1,16 +1,10 @@
-/* Script for fractal-clock.html */
-
 //GLOBALS
-var canvas, ctx;
 var xCenter, yCenter;
 var hourAngle = new NumberContainer(0);
 var minuteAngle = new NumberContainer(0);
 var secondAngle = new NumberContainer(0);
 var secondHand, minuteHand, hourHand;
-const PI = Math.PI;
-const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI / 2;
-const DOWNSCALE = 1/Math.sqrt(2);
+const DOWNSCALE = 1 / Math.sqrt(2);
 
 function updateTimeAngles() {
     var date = new Date();
@@ -26,55 +20,30 @@ function updateTimeAngles() {
 
 
 function setup() {
-    canvas = document.getElementById("canvas");
-    ctx = canvas.getContext("2d");
-    updateWindowDimensions();
+    createCanvas(windowWidth, windowHeight);
+    xCenter = windowWidth/2;
+    yCenter = windowHeight/2;
 
-    secondHand = new Hand(1,6,secondAngle,100);
-    minuteHand = new Hand(1,6,minuteAngle,100);
-
-    draw();
-    setInterval(draw, 11);
+    secondHand = new Hand(1,12,secondAngle,100);
+    minuteHand = new Hand(1,12,minuteAngle,100);
 }
 
 
 function draw() {
-    updateWindowDimensions();
+
+    background(255);
 
     updateTimeAngles();
 
-    ctx.translate(xCenter,yCenter);
-    ctx.save();
+    translate(xCenter,yCenter);
+    push();
     secondHand.draw();
     minuteHand.draw();
-
-    // //test second hand
-
-    // ctx.save();
-    // ctx.rotate(secondAngle.value);
-    // ctx.moveTo(0, 0);
-    // ctx.lineTo(0, -100);
-    // ctx.restore();
-
-    // //test minute hand
-
-    // ctx.save();
-    // ctx.rotate(minuteAngle.value);
-    // ctx.moveTo(0, 0);
-    // ctx.lineTo(0, -100);
-    // ctx.restore();
-
-    // ctx.stroke();
-    // ctx.restore();
+    pop();
 }
 
-
-function updateWindowDimensions() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    xCenter = canvas.width / 2;
-    yCenter = canvas.height / 2;
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    xCenter = windowWidth/2;
+    yCenter = windowHeight/2;
 }
-
-
-setup();
