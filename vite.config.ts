@@ -7,6 +7,12 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
+        rollupOptions: {
+            input: {
+                main: "src/index.html",
+                login: "src/fractal-clock/index.html",
+            },
+        },
     },
     plugins: [preact()],
 })
