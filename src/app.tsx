@@ -15,7 +15,7 @@ export function App() {
                 </button>
             </div>
 
-            <a href="/fractal-clock/">Fractal Clock</a>
+            <a href="fractal-clock/">Fractal Clock</a>
         </>
     )
 }
