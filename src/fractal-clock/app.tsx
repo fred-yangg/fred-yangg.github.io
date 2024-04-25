@@ -14,8 +14,6 @@ export function App() {
                     count is {count}
                 </button>
             </div>
-
-            <a href="/fractal-clock/">Fractal Clock</a>
         </>
     )
 }
