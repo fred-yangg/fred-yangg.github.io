@@ -9,8 +9,8 @@ export default defineConfig({
         emptyOutDir: true,
         rollupOptions: {
             input: {
-                main: "src/index.html",
-                login: "src/fractal-clock/index.html",
+                home: "src/index.html",
+                clock: "src/fractal-clock/index.html",
             },
         },
     },
