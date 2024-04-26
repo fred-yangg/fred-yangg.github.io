@@ -1,24 +1,25 @@
 import P5 from "p5";
 
-type NumberContainer = {
-    value: number
+type HandProps = {
+    enabled: boolean
+    angle: number
+    weight: number
 }
 
-type HandParams = {
-    enabled: boolean
-    angle: NumberContainer
+enum Hand {
+    HOUR,
+    MINUTE,
+    SECOND,
 }
 
 let xCenter: number;
 let yCenter: number;
-let handLength = 140;
-let hourAngle: NumberContainer = {value: 0};
-let minuteAngle: NumberContainer = {value: 0};
-let secondAngle: NumberContainer = {value: 0};
-const handParams: HandParams[] = [
-    {enabled: false, angle: hourAngle},
-    {enabled: true, angle: minuteAngle},
-    {enabled: true, angle: secondAngle},
+let handLength = 0;
+let numberRadius = 0;
+const allHandParams: HandProps[] = [
+    {enabled: false, angle: 0, weight: 4},
+    {enabled: true, angle: 0, weight: 4},
+    {enabled: true, angle: 0, weight: 4},
 ];
 
 
@@ -29,9 +30,9 @@ function updateTimeAngles() {
     const minute = date.getMinutes() + second / 60;
     const hour = date.getHours() + minute / 60;
 
-    hourAngle.value = hour / 24 * Math.PI * 2;
-    minuteAngle.value = minute / 60 * Math.PI * 2;
-    secondAngle.value = second / 60 * Math.PI * 2;
+    allHandParams[Hand.HOUR].angle = hour / 24 * Math.PI * 2;
+    allHandParams[Hand.MINUTE].angle = minute / 60 * Math.PI * 2;
+    allHandParams[Hand.SECOND].angle = second / 60 * Math.PI * 2;
 }
 
 const drawClock = (p: P5, depth: number) => {
@@ -39,11 +40,13 @@ const drawClock = (p: P5, depth: number) => {
         return;
     }
 
-    handParams.forEach((({enabled, angle}) => {
+    allHandParams.forEach((({enabled, angle, weight}) => {
         if (enabled) {
             p.push();
             p.scale(1 / Math.sqrt(2));
-            p.rotate(angle.value);
+            p.rotate(angle);
+
+            p.strokeWeight(weight);
             p.line(0, 0, 0, -handLength);
 
             p.translate(0, -handLength);
@@ -55,34 +58,55 @@ const drawClock = (p: P5, depth: number) => {
     }));
 };
 
+const drawNumbers = (p: P5) => {
+    p.strokeWeight(3)
+    p.fill(255)
+    p.circle(0,0,numberRadius*2+60)
+    p.fill(0)
+    for (let i = 1; i <= 12; i++) {
+        const angle = -Math.PI / 2 + i * Math.PI / 6;
+        const x = numberRadius * Math.cos(angle);
+        const y = numberRadius * Math.sin(angle);
+        p.textFont("Courier New");
+        p.textSize(36);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text(i, x, y);
+    }
+};
+
 const handleResize = (w: number, h: number) => {
     xCenter = w / 2;
     yCenter = h / 2;
     handLength = Math.min(w, h) / 5;
+    numberRadius = handLength * 2;
 };
 
-const sketch = (p: P5) => {
+export const sketch = (p: P5) => {
+    let canvas: HTMLCanvasElement;
+
     p.setup = () => {
-        p.createCanvas(p.windowWidth, p.windowHeight);
-        handleResize(p.windowWidth, p.windowHeight);
+        canvas = document.getElementById("clock-canvas") as HTMLCanvasElement;
+        p.createCanvas(canvas.clientWidth, canvas.clientHeight, canvas);
+        canvas.style.width = "100%";
+        canvas.style.height = "0";
+        handleResize(p.width, p.height);
     };
 
-    p.windowResized = () => {
-        p.resizeCanvas(p.windowWidth, p.windowHeight);
-        handleResize(p.windowWidth, p.windowHeight);
-    };
 
     p.draw = () => {
+        p.resizeCanvas(canvas.clientWidth, canvas.clientHeight);
+        canvas.style.width = "100%";
+        canvas.style.height = "0";
+        handleResize(p.width, p.height);
         p.background(255);
 
         updateTimeAngles();
 
         p.push();
-        p.strokeWeight(4);
         p.translate(xCenter, yCenter);
-        drawClock(p, 12);
+        drawNumbers(p);
+        drawClock(p, 10);
         p.pop();
+        console.log(p.width, p.height);
     };
 };
-
-new P5(sketch);
