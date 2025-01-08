@@ -13,6 +13,8 @@ export function App() {
             <br/>
             <h3>Some fun stuff 👇</h3>
             <a href="fractal-clock/">Fractal Clock</a>
+            <br/>
+            <a href="3d-life/">3D Game of Life</a>
         </>
     )
 }
