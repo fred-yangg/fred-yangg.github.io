@@ -11,6 +11,7 @@ export default defineConfig({
             input: {
                 home: "src/index.html",
                 clock: "src/fractal-clock/index.html",
+                life: "src/3d-life/index.html"
             },
         },
     },
