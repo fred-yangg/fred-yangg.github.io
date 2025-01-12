@@ -1,84 +1,151 @@
-import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import { useEffect, useRef } from 'react';
+import { nextGeneration, padGrid } from './life';
+import Zdog from 'zdog';
+import state from './state';
+import { GosperGliderGun } from './gridPresets';
 
-const Scene: React.FC = () => {
-    const mountRef = useRef<HTMLDivElement | null>(null);
+const Scene = () => {
+    const mountRef = useRef<HTMLCanvasElement | null>(null);
+    const [
+        CUBE_SIZE = 20,
+        MAX_FPS = 60,
+        MAX_TRAIL_LENGTH = 3,
+        GEN_SPEED = 20,
+        RENDER_PADDING = 6,
+    ] = [];
 
+
+    state.grid = GosperGliderGun;
+    state.grid = padGrid(state.grid, RENDER_PADDING);
+    const GRID_SIZE_X = state.grid[0].length;
+    const GRID_SIZE_Z = state.grid.length;
+    
     useEffect(() => {
-        if (!mountRef.current) return;
 
-        // Set up scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; // Enable shadow maps
+        const canvas = mountRef.current;
+        if (!canvas) return;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        mountRef.current.appendChild(renderer.domElement);
-
-        // Set up scene background
-        scene.background = new THREE.Color(0xffffff);
-        
-        // Add a light that casts shadows
-        const light = new THREE.DirectionalLight(0xffffff, 20);
-        light.position.set(5, 5, 5); // Position the light
-        light.castShadow = true; // Enable shadows for the light
-        scene.add(light);
-
-        // Configure shadow properties for the light
-        light.shadow.mapSize.width = 1024; // Shadow quality
-        light.shadow.mapSize.height = 1024;
-        light.shadow.camera.near = 0.1;
-        light.shadow.camera.far = 50;
-
-        // Add a cube
-        const geometry = new THREE.BoxGeometry();
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x00ff00,
-            metalness: 1,
-            roughness: 0.3
+        const illo = new Zdog.Illustration({
+            element: canvas,
+            dragRotate: true,
+            rotate: { x: -Zdog.TAU/8, y: -Zdog.TAU/8 },
         });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.castShadow = true; // Enable casting shadows
-        scene.add(cube);
-        
 
-        // Add a plane to receive shadows
-        const textureLoader = new THREE.TextureLoader();
-        const noiseTexture = textureLoader.load('../common/dirt.jpg');
-        
-        const planeGeometry = new THREE.PlaneGeometry(10, 10);
-        const planeMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x808080,
-            map: noiseTexture
+        const xShift = -(GRID_SIZE_X-1)/2*CUBE_SIZE;
+        const zShift = -(GRID_SIZE_Z-1)/2*CUBE_SIZE;
+        const rootAnchor = new Zdog.Anchor({ 
+            addTo: illo, 
+            translate: { x: xShift, z: zShift },
         });
-        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2; // Rotate the plane to be horizontal
-        plane.position.y = -1; // Position the plane below the cube
-        plane.receiveShadow = true; // Enable receiving shadows
-        scene.add(plane);
+        let topAnchor = rootAnchor;
 
-        camera.position.z = 5;
+        const makeAnchor = () => {
+            const anchor = new Zdog.Anchor({ 
+                addTo: topAnchor,
+                translate: { y: -CUBE_SIZE },
+            });
+            topAnchor = anchor;
+            return anchor;
+        }
 
-        // Animation loop
-        const animate = () => {
-            requestAnimationFrame(animate);
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
-            renderer.render(scene, camera);
-        };
-        animate();
+        const makeBox = (x: number, z: number, size: number) => new Zdog.Box({
+            addTo: topAnchor,
+            width: size,
+            height: 0.1,
+            depth: size,
+            stroke: false,
+            translate: { x: x, y: size/2,  z: z },
+            color: '#C25', // default face color
+            leftFace: '#EA0',
+            rightFace: '#E62',
+            topFace: '#ED0',
+            bottomFace: '#636',
+        });
 
-        // Cleanup on component unmount
-        return () => {
-            renderer.dispose();
-            if (mountRef.current) {
-                mountRef.current.removeChild(renderer.domElement);
+        const makeGrid = (grid: boolean[][]) => {
+            const boxes: Zdog.Box[] = [];
+            grid.forEach((row, z) => {
+                row.forEach((cell, x) => {
+                    const isOutsidePaddingBounds = x < RENDER_PADDING || 
+                        x >= GRID_SIZE_X-RENDER_PADDING || 
+                        z < RENDER_PADDING || 
+                        z >= GRID_SIZE_Z-RENDER_PADDING;
+
+                    if (isOutsidePaddingBounds) return;
+                    if (!cell) return;
+                    boxes.push(makeBox(x * CUBE_SIZE, z * CUBE_SIZE, CUBE_SIZE));
+                }
+            )});
+            return boxes;
+        }
+
+        let frame = 0;
+        const boxes: Zdog.Box[][] = [];
+        const anchors: Zdog.Anchor[] = [];
+
+        function animate() {
+
+            if (!state.paused) {
+                // give the impression of the grids moving down
+                rootAnchor.translate.y += CUBE_SIZE/MAX_FPS*GEN_SPEED;
+                
+                // make top grid grow into view
+                if (anchors.length > 0) {
+                    boxes[boxes.length-1].forEach(box => {
+                        box.height += CUBE_SIZE/MAX_FPS*GEN_SPEED;
+                        box.translate.y -= (CUBE_SIZE/MAX_FPS*GEN_SPEED)/2;
+                        box.updatePath();
+                    });
+                }
+
+                // make bottom grid shrink out of view
+                if (anchors.length === MAX_TRAIL_LENGTH) {
+                    boxes[0].forEach(box => {
+                        box.height -= CUBE_SIZE/MAX_FPS*GEN_SPEED;
+                        box.translate.y -= (CUBE_SIZE/MAX_FPS*GEN_SPEED)/2;
+                        box.updatePath();
+                    });
+                }
+
+                // make new grid
+                if (frame % (MAX_FPS/GEN_SPEED) === 0) {
+                    // make anchor for new layer
+                    anchors.push(makeAnchor());
+
+                    // make grid attached to anchor
+                    boxes.push(makeGrid(state.grid));
+
+                    // calculate next generation
+                    state.grid = nextGeneration(state.grid);
+
+                    // remove bottom anchor and grid once trail is too long
+                    if (anchors.length > MAX_TRAIL_LENGTH) {
+                        boxes.shift();
+                        const bottomAnchor = anchors.shift();
+                        bottomAnchor?.remove();
+
+                        const newBottomAnchor = anchors[0];
+                        newBottomAnchor.remove();
+                        rootAnchor.addChild(newBottomAnchor);
+                        rootAnchor.translate.y -= CUBE_SIZE;
+                    }
+                }
+                ++frame;
             }
-        };
+
+            // render the scene
+            illo.updateRenderGraph();
+            requestAnimationFrame( animate );
+        }
+
+        animate();
     }, []);
 
-    return <div ref={mountRef} />;
+    return <canvas 
+        ref={mountRef}
+    />;
 };
 
 export default Scene;
