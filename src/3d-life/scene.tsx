@@ -9,7 +9,7 @@ const Scene = () => {
     const [
         CUBE_SIZE = 20,
         MAX_FPS = 60,
-        MAX_TRAIL_LENGTH = 3,
+        MAX_TRAIL_LENGTH = 6,
         GEN_SPEED = 20,
         RENDER_PADDING = 6,
     ] = [];
@@ -53,7 +53,7 @@ const Scene = () => {
         const makeBox = (x: number, z: number, size: number) => new Zdog.Box({
             addTo: topAnchor,
             width: size,
-            height: 0.1,
+            height: 0.001,
             depth: size,
             stroke: false,
             translate: { x: x, y: size/2,  z: z },
@@ -86,11 +86,10 @@ const Scene = () => {
         const anchors: Zdog.Anchor[] = [];
 
         function animate() {
-
             if (!state.paused) {
                 // give the impression of the grids moving down
                 rootAnchor.translate.y += CUBE_SIZE/MAX_FPS*GEN_SPEED;
-                
+
                 // make top grid grow into view
                 if (anchors.length > 0) {
                     boxes[boxes.length-1].forEach(box => {
@@ -136,6 +135,7 @@ const Scene = () => {
             }
 
             // render the scene
+            illo.scale = new Zdog.Vector({ x: state.scale, y: state.scale, z: state.scale });
             illo.updateRenderGraph();
             requestAnimationFrame( animate );
         }

@@ -1,11 +1,13 @@
 type stateType = {
-    paused: boolean;
     grid: boolean[][];
+    paused: boolean;
+    scale: number;
 }
 
 const state: stateType = {
-    paused: false,
     grid: [],
+    paused: false,
+    scale: 1,
 }
 
 export default state;

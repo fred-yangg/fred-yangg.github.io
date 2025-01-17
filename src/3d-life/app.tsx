@@ -10,6 +10,10 @@ export const App = () => {
                 state.paused = !state.paused;
             }
         });
+
+        window.addEventListener('wheel', (event) => {
+            state.scale *= (1 - event.deltaY/1000);
+        });
     });
 
     return <Scene/>;
