@@ -4,9 +4,9 @@ import state from './state';
 import { CUBE_SIZE, MAX_FPS, MS_PER_GEN, GEN_SPEED, MAX_TRAIL_LENGTH, RENDER_PADDING } from './constants';
 import { clamp } from '../common/utils';
 
-const animateScene = (canvas: HTMLCanvasElement) => {
+const animateScene = (element: HTMLCanvasElement | SVGSVGElement) => {
     const illo = new Zdog.Illustration({
-        element: canvas,
+        element: element,
         dragRotate: true,
         rotate: { x: -Zdog.TAU/8, y: -Zdog.TAU/8 },
     });
@@ -98,8 +98,6 @@ const animateScene = (canvas: HTMLCanvasElement) => {
         });
     }
 
-    pushTopLayer();
-
     function animate() {
         delta = performance.now() - state.lastTime;
         state.lastTime = performance.now();
@@ -128,25 +126,30 @@ const animateScene = (canvas: HTMLCanvasElement) => {
             }
         }
 
-        // give the impression of the grids moving down
-        rootAnchor.translate.y = (anchors.length + offset) * CUBE_SIZE;
-
-        // make top grid grow into view
-        if (anchors.length > 0) {
-            setLayerProps(
-                boxes.length-1, 
-                offset * CUBE_SIZE, 
-                (1 - offset) * CUBE_SIZE/2
-            );
+        if (MAX_TRAIL_LENGTH === 1) {
+            setLayerProps(0, 0.0001, 0);
         }
+        else {
+            // give the impression of the grids moving down
+            rootAnchor.translate.y = (anchors.length + offset) * CUBE_SIZE;
 
-        // make bottom grid shrink out of view
-        if (anchors.length === MAX_TRAIL_LENGTH) {
-            setLayerProps(
-                0, 
-                (1 - offset) * CUBE_SIZE, 
-                offset * -CUBE_SIZE/2
-            );
+            // make top grid grow into view
+            if (anchors.length > 0) {
+                setLayerProps(
+                    boxes.length-1, 
+                    Zdog.lerp( 0, CUBE_SIZE, offset ), 
+                    Zdog.lerp( CUBE_SIZE/2, 0, offset ),
+                );
+            }
+
+            // make bottom grid shrink out of view
+            if (anchors.length === MAX_TRAIL_LENGTH) {
+                setLayerProps(
+                    0, 
+                    Zdog.lerp( CUBE_SIZE, 0, offset ), 
+                    Zdog.lerp( 0, -CUBE_SIZE/2, offset ),
+                );
+            }
         }
 
         // render the scene
@@ -156,6 +159,7 @@ const animateScene = (canvas: HTMLCanvasElement) => {
         requestAnimationFrame( animate );
     }
 
+    pushTopLayer();
     animate();
 }
 
