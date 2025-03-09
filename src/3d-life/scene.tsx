@@ -6,21 +6,19 @@ import { padGrid } from './life';
 import state from './state';
 
 const Scene = () => {
-    const mountRef = useRef<HTMLCanvasElement | null>(null);
+    const mountRef = useRef<HTMLDivElement | null>(null);
     
     useEffect(() => {
-        const canvas = mountRef.current;
-        if (!canvas) return;
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const div = mountRef.current;
+        if (!div) return;
 
         state.grid = GosperGliderGun;
         state.grid = padGrid(state.grid, RENDER_PADDING);
     
-        animateScene(canvas);
+        animateScene(div);
     }, []);
 
-    return <canvas 
+    return <div 
         ref={mountRef}
     />;
 };

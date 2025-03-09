@@ -1,165 +1,139 @@
 import { nextGeneration } from './life';
-import Zdog from 'zdog';
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import state from './state';
-import { CUBE_SIZE, MAX_FPS, MS_PER_GEN, GEN_SPEED, MAX_TRAIL_LENGTH, RENDER_PADDING } from './constants';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+import { CUBE_SIZE, MAX_FPS, MS_PER_GEN, GEN_SPEED, MAX_TRAIL_LENGTH, RENDER_PADDING } from "./constants";
 import { clamp } from '../common/utils';
+import {BoxGeometry, BufferGeometry, Mesh} from "three";
 
-const animateScene = (element: HTMLCanvasElement | SVGSVGElement) => {
-    const illo = new Zdog.Illustration({
-        element: element,
-        dragRotate: true,
-        rotate: { x: -Zdog.TAU/8, y: -Zdog.TAU/8 },
-    });
+const animateScene = (div: HTMLDivElement) => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspect = width / height;
 
-    const GRID_SIZE_X = state.grid[0].length;
-    const GRID_SIZE_Z = state.grid.length;
-    const xShift = -(GRID_SIZE_X-1)/2*CUBE_SIZE;
-    const zShift = -(GRID_SIZE_Z-1)/2*CUBE_SIZE;
-    
-    const rootAnchor = new Zdog.Anchor({ 
-        addTo: illo, 
-        translate: { x: xShift, z: zShift },
-    });
-    let topAnchor = rootAnchor;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xFFFFFF);
 
-    const makeAnchor = () => {
-        const anchor = new Zdog.Anchor({ 
-            addTo: topAnchor,
-            translate: { y: -CUBE_SIZE },
-        });
-        topAnchor = anchor;
-        return anchor;
+    const camera = new THREE.OrthographicCamera(
+        -aspect * 5, // left
+        aspect * 5,  // right
+        5,           // top
+        -5,          // bottom
+        0.1,         // near
+        10000          // far
+    );
+
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(width, height);
+    div.appendChild(renderer.domElement);
+
+    // Add a cube
+    const cubeMaterials = [
+      new THREE.MeshBasicMaterial({ color: 0xE06020 }),
+      new THREE.MeshBasicMaterial({ color: 0xE0A000 }),
+      new THREE.MeshBasicMaterial({ color: 0xE0D000 }),
+      new THREE.MeshBasicMaterial({ color: 0x603060 }),
+      new THREE.MeshBasicMaterial({ color: 0xC02050 }),
+      new THREE.MeshBasicMaterial({ color: 0xC02050 }),
+    ];
+
+    const makeCube = (x: number, y: number, z: number) => {
+        const cube = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+        cube.translate(x, y, z);
+        return cube
     }
-
-    const makeBox = (x: number, z: number, size: number) => new Zdog.Box({
-        addTo: topAnchor,
-        width: size,
-        height: CUBE_SIZE,
-        depth: size,
-        stroke: false,
-        translate: { x: x,  z: z },
-        color: '#C25', // default face color
-        leftFace: '#EA0',
-        rightFace: '#E62',
-        topFace: '#ED0',
-        bottomFace: '#636',
-    });
 
     const makeGrid = (grid: boolean[][]) => {
-        const boxes: Zdog.Box[] = [];
+        const cubes: BufferGeometry[] = []
+        const xLength = grid[0].length - RENDER_PADDING * 2;
+        const zLength = grid.length - RENDER_PADDING * 2;
+        const xOffset = 0.5 - xLength / 2;
+        const zOffset = 0.5 - zLength / 2;
         grid.forEach((row, z) => {
             row.forEach((cell, x) => {
-                const isOutsidePaddingBounds = x < RENDER_PADDING || 
-                    x >= GRID_SIZE_X-RENDER_PADDING || 
-                    z < RENDER_PADDING || 
-                    z >= GRID_SIZE_Z-RENDER_PADDING;
-
-                if (isOutsidePaddingBounds) return;
-                if (!cell) return;
-                boxes.push(makeBox(x * CUBE_SIZE, z * CUBE_SIZE, CUBE_SIZE));
-            }
-        )});
-        return boxes;
+                if (!cell ||
+                    x < RENDER_PADDING ||
+                    x >= row.length - RENDER_PADDING ||
+                    z < RENDER_PADDING ||
+                    z >= grid.length - RENDER_PADDING) {
+                    return;
+                }
+                const cube = makeCube(xOffset + x, 0, zOffset + z);
+                cubes.push(cube);
+            });
+        });
+        const gridGeometry = BufferGeometryUtils.mergeGeometries(cubes, false);
+        const totalFaces = (gridGeometry.getIndex()?.count ?? 0) / 6;
+        for (let i = 0; i < totalFaces; ++i) {
+            gridGeometry.addGroup(i * 6, 6, i % 6);
+        }
+        return new THREE.Mesh(gridGeometry, cubeMaterials);
     }
+
+    camera.position.x = 100;
+    camera.position.y = 100;
+    camera.position.z = 100;
+
+    const controls = new OrbitControls( camera, renderer.domElement );
+	controls.maxPolarAngle = Math.PI / 2;
+    controls.enablePan = false;
+
+    const firstGrid = makeGrid(state.grid);
+    scene.add(firstGrid);
 
     let offset = 0;
     state.lastTime = performance.now();
-    let delta = 0;
+    let timeDelta = 0;
+    const layers: Mesh[] = [firstGrid]
 
-    const boxes: Zdog.Box[][] = [];
-    const anchors: Zdog.Anchor[] = [];
-
-    const pushTopLayer = () => {
-        // make anchor for new layer
-        anchors.push(makeAnchor());
-     
-        // make grid attached to anchor
-        boxes.push(makeGrid(state.grid));
-     
-        // calculate next generation
-        state.grid = nextGeneration(state.grid);
-    }
-
-    const popBottomLayer = () => {
-        boxes.shift();
-        const bottomAnchor = anchors.shift();
-        bottomAnchor?.remove();
-
-        const newBottomAnchor = anchors[0];
-        newBottomAnchor.remove();
-        rootAnchor.addChild(newBottomAnchor);
-    }
-
-    const setLayerProps = ( index: number, height: number, y: number) => {
-        boxes[index].forEach(box => {
-            box.height = height;
-            box.translate.y = y;
-            box.updatePath();
-        });
-    }
-
-    function animate() {
-        delta = performance.now() - state.lastTime;
+    // Animation loop
+    const animate = () => {
+        timeDelta = performance.now() - state.lastTime;
         state.lastTime = performance.now();
 
         if (state.paused || state.inactive) {
-            // render the scene
-            illo.scale = new Zdog.Vector({ x: state.scale, y: state.scale, z: state.scale });
-            illo.updateRenderGraph();
+            renderer.render(scene, camera);
             requestAnimationFrame( animate );
             return;
         }
 
-        const newLayers = Math.floor(delta / MS_PER_GEN + offset);
-        offset = (delta / MS_PER_GEN + offset) % 1;
+        const distanceDelta = timeDelta / MS_PER_GEN
+        const newLayers = Math.floor(distanceDelta + offset);
+        offset = (distanceDelta + offset) % 1;
 
         if (newLayers > 0) {
             // reset top grid to be full height
-            setLayerProps(boxes.length-1, CUBE_SIZE, 0);
+            layers[layers.length - 1].scale.y = 1
 
             for (let i = 0; i < newLayers; ++i) {
-                pushTopLayer();
-            }
-            
-            while (anchors.length > MAX_TRAIL_LENGTH) {
-                popBottomLayer();
-            }
-        }
-
-        if (MAX_TRAIL_LENGTH === 1) {
-            setLayerProps(0, 0.0001, 0);
-        }
-        else {
-            // give the impression of the grids moving down
-            rootAnchor.translate.y = (anchors.length + offset) * CUBE_SIZE;
-
-            // make top grid grow into view
-            if (anchors.length > 0) {
-                setLayerProps(
-                    boxes.length-1, 
-                    Zdog.lerp( 0, CUBE_SIZE, offset ), 
-                    Zdog.lerp( CUBE_SIZE/2, 0, offset ),
-                );
+                state.grid = nextGeneration(state.grid);
+                const grid = makeGrid(state.grid)
+                layers.push(grid);
+                scene.add(grid);
             }
 
-            // make bottom grid shrink out of view
-            if (anchors.length === MAX_TRAIL_LENGTH) {
-                setLayerProps(
-                    0, 
-                    Zdog.lerp( CUBE_SIZE, 0, offset ), 
-                    Zdog.lerp( 0, -CUBE_SIZE/2, offset ),
-                );
+            while (layers.length > MAX_TRAIL_LENGTH) {
+                const bottomGrid = layers.shift();
+                bottomGrid?.removeFromParent()
             }
         }
 
-        // render the scene
-        illo.scale = new Zdog.Vector({ x: state.scale, y: state.scale, z: state.scale });
-        illo.rotate.x = clamp(illo.rotate.x, -Zdog.TAU/4, 0);
-        illo.updateRenderGraph();
-        requestAnimationFrame( animate );
-    }
+        layers.forEach((layer, index) => {
+            layer.position.y = index - layers.length - offset;
+        })
 
-    pushTopLayer();
+        layers[layers.length - 1].scale.y = offset
+        layers[layers.length - 1].position.y += offset / 2 - 0.5
+
+        if (layers.length === MAX_TRAIL_LENGTH) {
+            layers[0].scale.y = 1 - offset
+            layers[0].position.y += offset / 2
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    };
     animate();
 }
 

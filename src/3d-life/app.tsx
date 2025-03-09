@@ -11,10 +11,6 @@ export const App = () => {
             }
         });
 
-        window.addEventListener('wheel', (event) => {
-            state.scale *= (1 - event.deltaY/1000);
-        });
-
         window.addEventListener('visibilitychange', () => {
             state.lastTime = performance.now();
             state.inactive = document.hidden;
