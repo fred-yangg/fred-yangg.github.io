@@ -11,7 +11,7 @@ export function App() {
 
             <a href="fractal-clock/">Fractal Clock</a>
             <br/>
-            <a href="3d-life/">Life x Time</a>
+            <a href="life-x-time/">Life x Time</a>
             <br/>
             <a href="hex-fever/">Hex Fever</a>
         </>
