@@ -7,7 +7,7 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
-        rolldownOptions: {
+        rollupOptions: {
             input: {
                 home: "src/index.html",
                 clock: "src/fractal-clock/index.html",
