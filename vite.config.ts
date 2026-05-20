@@ -9,10 +9,10 @@ export default defineConfig({
         emptyOutDir: true,
         rolldownOptions: {
             input: {
-                home: "src/index.html",
-                clock: "src/fractal-clock/index.html",
-                life: "src/life-x-time/index.html",
-                hex: "src/hex-fever/index.html",
+                home: "index.html",
+                clock: "fractal-clock/index.html",
+                life: "life-x-time/index.html",
+                hex: "hex-fever/index.html",
             },
         },
     },
