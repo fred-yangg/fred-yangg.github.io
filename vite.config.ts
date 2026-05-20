@@ -7,11 +7,12 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
-        rollupOptions: {
+        rolldownOptions: {
             input: {
                 home: "src/index.html",
                 clock: "src/fractal-clock/index.html",
-                life: "src/3d-life/index.html"
+                life: "src/life-x-time/index.html",
+                hex: "src/hex-fever/index.html",
             },
         },
     },
