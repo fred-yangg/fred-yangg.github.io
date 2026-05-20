@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@types/p5": "^1.7.6",
+    "@types/p5": "^1.7.7",
     "@types/three": "^0.172.0",
-    "p5": "^1.9.3",
-    "preact": "^10.19.6",
+    "p5": "^1.11.13",
+    "preact": "^10.29.2",
     "three": "^0.172.0"
   },
   "devDependencies": {
-    "@preact/preset-vite": "^2.8.2",
-    "typescript": "^5.2.2",
-    "vite": "^5.2.0"
+    "@preact/preset-vite": "^2.10.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.13"
   }
 }
