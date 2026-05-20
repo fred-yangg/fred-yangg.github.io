@@ -5,7 +5,7 @@ export const App = () => {
         const script = document.createElement("script");
         script.src = "https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js";
         script.onload = () => {
-            (window as any).load("optimized.wasm");
+            (window as any).load("/optimized.wasm");
         };
         document.body.appendChild(script);
     }, []);
