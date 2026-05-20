@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/node": "^25.9.0",
     "@types/p5": "^1.7.6",
     "@types/three": "^0.172.0",
     "p5": "^1.9.3",

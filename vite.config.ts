@@ -1,18 +1,19 @@
+import {resolve} from 'node:path'
 import {defineConfig} from 'vite'
 import preact from '@preact/preset-vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    root: 'src',
+    root: resolve(__dirname, 'src'),
     build: {
-        outDir: '../dist',
+        outDir: resolve(__dirname, 'dist'),
         emptyOutDir: true,
         rollupOptions: {
             input: {
-                home: "src/index.html",
-                clock: "src/fractal-clock/index.html",
-                life: "src/life-x-time/index.html",
-                hex: "src/hex-fever/index.html",
+                home: resolve(__dirname, 'src/index.html'),
+                clock: resolve(__dirname, 'src/fractal-clock/index.html'),
+                life: resolve(__dirname, 'src/life-x-time/index.html'),
+                hex: resolve(__dirname, 'src/hex-fever/index.html'),
             },
         },
     },
