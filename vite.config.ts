@@ -9,6 +9,7 @@ const repoRoot = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
     root: 'src',
+    publicDir: path.join(repoRoot, 'public'),
     build: {
         outDir: '../dist',
         emptyOutDir: true,
