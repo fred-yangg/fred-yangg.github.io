@@ -1,6 +1,5 @@
 import {useEffect, useLayoutEffect, useRef} from "react";
 
-import './app.css'
 import {sketch} from "./fractalClock.ts";
 import P5 from "p5";
 
@@ -40,5 +39,5 @@ export function App() {
         };
     })
 
-    return <canvas id="clock-canvas" ref={canvasRef}></canvas>
+    return <canvas id="clock-canvas" ref={canvasRef} className="h-0 w-full flex-1 basis-0"></canvas>
 }
