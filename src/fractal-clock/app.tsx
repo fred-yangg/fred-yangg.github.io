@@ -40,11 +40,5 @@ export function App() {
         };
     })
 
-    return (
-        <>
-            <div></div>
-            <canvas id="clock-canvas" ref={canvasRef} ></canvas>
-            <div></div>
-        </>
-    )
+    return <canvas id="clock-canvas" ref={canvasRef}></canvas>
 }
