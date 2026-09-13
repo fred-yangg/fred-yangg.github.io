@@ -6,7 +6,7 @@ type Hand = {
 const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
 const ROOT_STROKE_WIDTH_PX = 4
-const CHILD_STROKE_WIDTH_PX = 2
+const CHILD_STROKE_WIDTH_PX = 1
 const MAX_INSTANCES = 1 << 20
 const INSTANCE_FLOATS = 5
 
