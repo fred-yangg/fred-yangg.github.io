@@ -1,4 +1,4 @@
-import {useEffect, useLayoutEffect, useRef} from "preact/hooks";
+import {useEffect, useLayoutEffect, useRef} from "react";
 
 import './app.css'
 import {sketch} from "./fractalClock.ts";

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {defineConfig} from 'vite'
-import preact from '@preact/preset-vite'
+import react from '@vitejs/plugin-react'
 
 import {projects} from './src/projects'
 
@@ -25,5 +25,5 @@ export default defineConfig({
             },
         },
     },
-    plugins: [preact()],
+    plugins: [react()],
 })
