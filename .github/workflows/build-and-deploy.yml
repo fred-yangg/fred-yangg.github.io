@@ -34,9 +34,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Download WASM
-        run: |
-          curl -L https://github.com/fred-yangg/rust-hexfrvr/releases/latest/download/optimized.wasm \
-            -o src/public/optimized.wasm
+        run: pnpm fetch-wasm
       - name: Build Static Pages
         run: pnpm build
       - name: Upload artifact
