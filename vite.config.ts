@@ -1,7 +1,12 @@
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {defineConfig} from 'vite'
 import preact from '@preact/preset-vite'
 
-// https://vitejs.dev/config/
+import {projects} from './src/projects'
+
+const repoRoot = fileURLToPath(new URL('.', import.meta.url))
+
 export default defineConfig({
     root: 'src',
     build: {
@@ -9,10 +14,13 @@ export default defineConfig({
         emptyOutDir: true,
         rolldownOptions: {
             input: {
-                home: "index.html",
-                clock: "fractal-clock/index.html",
-                life: "life-x-time/index.html",
-                hex: "hex-fever/index.html",
+                home: path.join(repoRoot, 'src/index.html'),
+                ...Object.fromEntries(
+                    projects.map((project) => [
+                        project.slug,
+                        path.join(repoRoot, 'src', project.slug, 'index.html'),
+                    ]),
+                ),
             },
         },
     },
