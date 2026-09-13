@@ -5,31 +5,33 @@ type Hand = {
 
 const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
-const STROKE_WIDTH_PX = 4
+const ROOT_STROKE_WIDTH_PX = 4
+const CHILD_STROKE_WIDTH_PX = 2
 const MAX_INSTANCES = 1 << 20
+const INSTANCE_FLOATS = 5
 
 const VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 aCorner;
 layout(location = 1) in vec2 aOrigin;
 layout(location = 2) in float aAngle;
 layout(location = 3) in float aLength;
+layout(location = 4) in float aWidth;
 
 uniform vec2 uResolution;
-uniform float uWidth;
 
 out vec2 vHand;
 out float vLength;
 out float vRadius;
 
 void main() {
-    float pad = uWidth;
+    float pad = aWidth;
     vec2 hand = vec2(
-        (aCorner.x - 0.5) * uWidth,
+        (aCorner.x - 0.5) * aWidth,
         aCorner.y * (aLength + pad) - pad * 0.5
     );
     vHand = hand;
     vLength = aLength;
-    vRadius = uWidth * 0.5;
+    vRadius = aWidth * 0.5;
 
     float c = cos(aAngle);
     float s = sin(aAngle);
@@ -105,8 +107,10 @@ function fillInstances(
     stack[sp++] = cy
     stack[sp++] = 0
     stack[sp++] = rootLength
+    stack[sp++] = ROOT_STROKE_WIDTH_PX
 
     while (sp > 0) {
+        const width = stack[--sp]
         const len = stack[--sp]
         const baseAngle = stack[--sp]
         const y = stack[--sp]
@@ -118,20 +122,22 @@ function fillInstances(
             if (count >= MAX_INSTANCES) return count
 
             const angle = baseAngle + hand.angle
-            const i = count * 4
+            const i = count * INSTANCE_FLOATS
             out[i] = x
             out[i + 1] = y
             out[i + 2] = angle
             out[i + 3] = len
+            out[i + 4] = width
             count++
 
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
-            if (sp + 4 > stack.length) continue
+            if (sp + INSTANCE_FLOATS > stack.length) continue
             stack[sp++] = x + len * Math.sin(angle)
             stack[sp++] = y - len * Math.cos(angle)
             stack[sp++] = angle
             stack[sp++] = childLen
+            stack[sp++] = CHILD_STROKE_WIDTH_PX
         }
     }
 
@@ -201,8 +207,8 @@ export function startClock(container: HTMLElement) {
         {enabled: true, angle: 0},
     ]
 
-    const instances = new Float32Array(MAX_INSTANCES * 4)
-    const stack = new Float32Array(MAX_INSTANCES * 4)
+    const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
+    const stack = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
 
     const program = gl.createProgram()
     if (!program) throw new Error('Failed to create program')
@@ -216,7 +222,6 @@ export function startClock(container: HTMLElement) {
     }
     gl.useProgram(program)
     const uResolution = gl.getUniformLocation(program, 'uResolution')
-    const uWidth = gl.getUniformLocation(program, 'uWidth')
 
     const vao = gl.createVertexArray()
     gl.bindVertexArray(vao)
@@ -228,17 +233,21 @@ export function startClock(container: HTMLElement) {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
 
     const instanceBuf = gl.createBuffer()
+    const instanceStride = INSTANCE_FLOATS * 4
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
     gl.bufferData(gl.ARRAY_BUFFER, instances.byteLength, gl.DYNAMIC_DRAW)
     gl.enableVertexAttribArray(1)
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 0)
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, instanceStride, 0)
     gl.vertexAttribDivisor(1, 1)
     gl.enableVertexAttribArray(2)
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 16, 8)
+    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, instanceStride, 8)
     gl.vertexAttribDivisor(2, 1)
     gl.enableVertexAttribArray(3)
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 16, 12)
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, instanceStride, 12)
     gl.vertexAttribDivisor(3, 1)
+    gl.enableVertexAttribArray(4)
+    gl.vertexAttribPointer(4, 1, gl.FLOAT, false, instanceStride, 16)
+    gl.vertexAttribDivisor(4, 1)
 
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -279,11 +288,10 @@ export function startClock(container: HTMLElement) {
         )
 
         gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, 0, count * 4)
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
         gl.useProgram(program)
         gl.bindVertexArray(vao)
         gl.uniform2f(uResolution, cssWidth, cssHeight)
-        gl.uniform1f(uWidth, STROKE_WIDTH_PX)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }
