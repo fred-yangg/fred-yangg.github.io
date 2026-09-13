@@ -3,9 +3,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import state from './state';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { CUBE_SIZE, MAX_FPS, MS_PER_GEN, GEN_SPEED, MAX_TRAIL_LENGTH, RENDER_PADDING } from "./constants";
-import { clamp } from '../common/utils';
-import {BoxGeometry, BufferGeometry, Mesh} from "three";
+import { CUBE_SIZE, MS_PER_GEN, MAX_TRAIL_LENGTH, RENDER_PADDING } from "./constants";
+import {BufferGeometry, Mesh} from "three";
 
 const animateScene = (div: HTMLDivElement) => {
     const width = window.innerWidth;
