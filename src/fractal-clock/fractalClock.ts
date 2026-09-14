@@ -19,24 +19,15 @@ layout(location = 4) in float aWidth;
 
 uniform vec2 uResolution;
 
-out vec2 vHand;
-out float vLength;
-out float vRadius;
-
 void main() {
-    float pad = aWidth;
     vec2 hand = vec2(
         (aCorner.x - 0.5) * aWidth,
-        aCorner.y * (aLength + pad) - pad * 0.5
+        aCorner.y * aLength
     );
-    vHand = hand;
-    vLength = aLength;
-    vRadius = aWidth * 0.5;
-
     float c = cos(aAngle);
     float s = sin(aAngle);
-    vec2 p5 = vec2(hand.x, -hand.y);
-    vec2 rotated = vec2(p5.x * c - p5.y * s, p5.x * s + p5.y * c);
+    vec2 down = vec2(hand.x, -hand.y);
+    vec2 rotated = vec2(down.x * c - down.y * s, down.x * s + down.y * c);
     vec2 canvas = aOrigin + rotated;
     gl_Position = vec4(
         canvas.x / uResolution.x * 2.0 - 1.0,
@@ -50,20 +41,10 @@ void main() {
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
-in vec2 vHand;
-in float vLength;
-in float vRadius;
-
 out vec4 outColor;
 
 void main() {
-    vec2 pa = vHand;
-    vec2 ba = vec2(0.0, vLength);
-    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
-    float d = length(pa - ba * h) - vRadius;
-    float alpha = clamp(0.5 - d, 0.0, 1.0);
-    if (alpha <= 0.0) discard;
-    outColor = vec4(0.0, 0.0, 0.0, alpha);
+    outColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 `
 
@@ -194,6 +175,7 @@ export function startClock(container: HTMLElement) {
     const gl = glCanvas.getContext('webgl2', {
         alpha: true,
         antialias: true,
+        depth: true,
         premultipliedAlpha: false,
     })
     if (!gl) throw new Error('WebGL2 is required for the fractal clock')
@@ -249,9 +231,11 @@ export function startClock(container: HTMLElement) {
     gl.vertexAttribPointer(4, 1, gl.FLOAT, false, instanceStride, 16)
     gl.vertexAttribDivisor(4, 1)
 
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.disable(gl.BLEND)
+    gl.enable(gl.DEPTH_TEST)
+    gl.depthFunc(gl.LESS)
     gl.clearColor(0, 0, 0, 0)
+    gl.clearDepth(1)
 
     let cssWidth = 0
     let cssHeight = 0
@@ -292,7 +276,7 @@ export function startClock(container: HTMLElement) {
         gl.useProgram(program)
         gl.bindVertexArray(vao)
         gl.uniform2f(uResolution, cssWidth, cssHeight)
-        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }
 
