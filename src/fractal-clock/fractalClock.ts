@@ -1,3 +1,7 @@
+export type ClockSettings = {
+    hourHand: boolean
+}
+
 type Hand = {
     enabled: boolean
     angle: number
@@ -232,7 +236,7 @@ function resizeCanvas(canvas: HTMLCanvasElement, cssWidth: number, cssHeight: nu
     return dpr
 }
 
-export function startClock(container: HTMLElement) {
+export function startClock(container: HTMLElement, settings: ClockSettings) {
     const glCanvas = container.querySelector('#gl-canvas')
     const numbersCanvas = container.querySelector('#numbers-canvas')
     if (!(glCanvas instanceof HTMLCanvasElement) || !(numbersCanvas instanceof HTMLCanvasElement)) {
@@ -327,6 +331,7 @@ export function startClock(container: HTMLElement) {
         raf = requestAnimationFrame(frame)
         if (cssWidth < 1 || cssHeight < 1) return
 
+        hands[0].enabled = settings.hourHand
         updateTimeAngles(hands)
         const count = fillInstances(
             instances,

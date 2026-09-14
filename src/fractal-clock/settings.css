@@ -1,0 +1,101 @@
+.clock-settings {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.6rem;
+}
+
+.clock-gear {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: #111;
+    color: #fff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+    transform-origin: center;
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clock-gear svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.clock-gear:hover:not(.is-open) {
+    transform: scale(1.16) rotate(18deg);
+}
+
+.clock-gear:active {
+    transform: scale(0.9) rotate(-8deg);
+}
+
+.clock-gear.is-open {
+    transform: rotate(90deg);
+}
+
+.clock-gear.is-open:hover {
+    transform: scale(1.1) rotate(90deg);
+}
+
+.clock-gear:focus-visible {
+    outline: 2px solid #111;
+    outline-offset: 3px;
+}
+
+.clock-menu {
+    min-width: 12.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: 1rem;
+    background: #fff;
+    color: #111;
+    box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
+    transform-origin: top right;
+    transform: scale(0.45) translate(8px, -8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.2s ease,
+        visibility 0.2s;
+}
+
+.clock-menu.is-open {
+    transform: scale(1) translate(0, 0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.clock-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+    cursor: pointer;
+    user-select: none;
+}
+
+.clock-menu-row input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: #111;
+    cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clock-gear,
+    .clock-menu {
+        transition: opacity 0.15s ease, visibility 0.15s;
+        transform: none;
+    }
+}

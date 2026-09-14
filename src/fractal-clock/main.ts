@@ -1,9 +1,16 @@
 import '../styles.css'
-import {startClock} from './fractalClock.ts'
+import './settings.css'
+import {startClock, type ClockSettings} from './fractalClock.ts'
+import {mountSettings} from './settings.ts'
 
 const root = document.getElementById('clock-root')
 if (!root) {
     throw new Error('Missing #clock-root')
 }
 
-startClock(root)
+const settings: ClockSettings = {
+    hourHand: false,
+}
+
+startClock(root, settings)
+mountSettings(settings)
