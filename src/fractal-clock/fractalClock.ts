@@ -420,7 +420,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const dark = effectiveClockTheme(settings.theme) === 'dark'
         return dark
             ? {ink: '#f4f4f4', paper: '#111111', inkRgb: [0.957, 0.957, 0.957] as const}
-            : {ink: '#111111', paper: '#ffffff', inkRgb: [0.067, 0.067, 0.067] as const}
+            : {ink: '#111111', paper: '#f3f2ee', inkRgb: [0.067, 0.067, 0.067] as const}
     }
 
     const layout = () => {
