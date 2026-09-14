@@ -30,17 +30,22 @@
         </svg>
     </button>
     <div class="clock-menu" id="clock-settings-menu" role="dialog" aria-label="Clock settings">
-        <label class="clock-menu-row">
-            <input type="checkbox" id="setting-sync" checked/>
-            Sync to current time
-        </label>
-        <label class="clock-menu-block">
-            <span class="clock-menu-block-label">
-                Steer
-                <span id="setting-time-label">12:00</span>
-            </span>
-            <input type="range" id="setting-time" min="0" max="12" step="any" value="0"/>
-        </label>
+        <div class="clock-menu-head">
+            <p class="clock-speed">Speed: <span id="setting-speed-label">Synced</span></p>
+            <button type="button" class="clock-sync" id="setting-sync">Sync to current time</button>
+        </div>
+        <div
+            class="clock-stick is-synced"
+            id="setting-stick"
+            role="slider"
+            aria-label="Hand speed"
+            aria-valuemin="-1"
+            aria-valuemax="1"
+            aria-valuenow="0"
+            tabindex="0"
+        >
+            <div class="clock-stick-knob" id="setting-stick-knob"></div>
+        </div>
     </div>
 </div>
 <script type="module" src="main.ts"></script>

@@ -1,8 +1,12 @@
 export type ClockSettings = {
     syncToNow: boolean
-    /** Hours into a 12-hour cycle, 0–12. */
+    /** Hours into a 12-hour cycle. */
     hour: number
+    /** Signed clock-hours per second. Ignored while synced. */
+    hoursPerSecond: number
 }
+
+export const MAX_CLOCK_HOURS_PER_SEC = 0.4
 
 type Hand = {
     enabled: boolean
@@ -319,6 +323,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let cssHeight = 0
     let handLength = 0
     let raf = 0
+    let lastTs = performance.now()
     let observer: ResizeObserver | undefined
 
     const layout = () => {
@@ -334,11 +339,14 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         drawFace(numbersCtx, cssWidth, cssHeight, handLength)
     }
 
-    const frame = () => {
+    const frame = (ts: number) => {
         raf = requestAnimationFrame(frame)
+        const dt = Math.min(0.05, (ts - lastTs) / 1000)
+        lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
 
         if (settings.syncToNow) settings.hour = hourFromDate()
+        else settings.hour += settings.hoursPerSecond * dt
         updateTimeAngles(hands, settings.hour)
         const count = fillInstances(
             instances,

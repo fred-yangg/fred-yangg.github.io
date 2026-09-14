@@ -1,42 +1,58 @@
-import {hourFromDate, type ClockSettings} from './fractalClock.ts'
+import {hourFromDate, MAX_CLOCK_HOURS_PER_SEC, type ClockSettings} from './fractalClock.ts'
 
-function formatHour(hour: number) {
-    const wrapped = ((hour % 12) + 12) % 12
-    const totalMinutes = wrapped * 60
-    const h = Math.floor(totalMinutes / 60) % 12 || 12
-    const m = Math.floor(totalMinutes % 60)
-    return `${h}:${String(m).padStart(2, '0')}`
+function throwFromSpeed(hoursPerSecond: number) {
+    return Math.max(-1, Math.min(1, hoursPerSecond / MAX_CLOCK_HOURS_PER_SEC))
+}
+
+function formatSpeed(settings: ClockSettings) {
+    if (settings.syncToNow) return 'Synced'
+    const t = throwFromSpeed(settings.hoursPerSecond)
+    if (Math.abs(t) < 0.02) return '0'
+    return `${t > 0 ? '+' : ''}${t.toFixed(2)}`
 }
 
 export function mountSettings(settings: ClockSettings) {
     const button = document.getElementById('clock-settings-btn')
     const menu = document.getElementById('clock-settings-menu')
     const sync = document.getElementById('setting-sync')
-    const time = document.getElementById('setting-time')
-    const timeLabel = document.getElementById('setting-time-label')
+    const stick = document.getElementById('setting-stick')
+    const knob = document.getElementById('setting-stick-knob')
+    const speedLabel = document.getElementById('setting-speed-label')
     if (!(button instanceof HTMLButtonElement) || !(menu instanceof HTMLElement)) {
         throw new Error('Missing settings controls')
     }
-    if (!(sync instanceof HTMLInputElement) || !(time instanceof HTMLInputElement) || !timeLabel) {
-        throw new Error('Missing time settings')
+    if (
+        !(sync instanceof HTMLButtonElement)
+        || !(stick instanceof HTMLElement)
+        || !(knob instanceof HTMLElement)
+        || !speedLabel
+    ) {
+        throw new Error('Missing speed settings')
     }
 
-    let scrubbing = false
-
-    const paintTime = () => {
-        time.value = String(settings.hour)
-        timeLabel.textContent = formatHour(settings.hour)
+    const paint = () => {
+        const t = settings.syncToNow ? 0 : throwFromSpeed(settings.hoursPerSecond)
+        knob.style.left = `${((t + 1) / 2) * 100}%`
+        stick.classList.toggle('is-synced', settings.syncToNow)
+        stick.setAttribute('aria-valuenow', t.toFixed(2))
+        speedLabel.textContent = formatSpeed(settings)
     }
 
-    const setSync = (on: boolean) => {
-        settings.syncToNow = on
-        sync.checked = on
-        if (on) settings.hour = hourFromDate()
-        paintTime()
+    const setThrow = (t: number) => {
+        const clamped = Math.abs(t) < 0.04 ? 0 : Math.max(-1, Math.min(1, t))
+        settings.syncToNow = false
+        settings.hoursPerSecond = clamped * MAX_CLOCK_HOURS_PER_SEC
+        paint()
     }
 
-    sync.checked = settings.syncToNow
-    paintTime()
+    const throwFromClientX = (clientX: number) => {
+        const rect = stick.getBoundingClientRect()
+        const pad = knob.offsetWidth / 2
+        const span = Math.max(1, rect.width - pad * 2)
+        return ((clientX - rect.left - pad) / span) * 2 - 1
+    }
+
+    paint()
 
     const setOpen = (open: boolean, restoreFocus = false) => {
         button.classList.toggle('is-open', open)
@@ -52,31 +68,42 @@ export function mountSettings(settings: ClockSettings) {
         setOpen(!isOpen())
     })
 
-    sync.addEventListener('change', () => {
-        if (sync.checked) setSync(true)
-        else {
-            settings.hour = hourFromDate()
-            setSync(false)
+    sync.addEventListener('click', () => {
+        settings.syncToNow = true
+        settings.hoursPerSecond = 0
+        settings.hour = hourFromDate()
+        paint()
+    })
+
+    stick.addEventListener('pointerdown', (event) => {
+        event.preventDefault()
+        stick.setPointerCapture(event.pointerId)
+        setThrow(throwFromClientX(event.clientX))
+    })
+    stick.addEventListener('pointermove', (event) => {
+        if (!stick.hasPointerCapture(event.pointerId)) return
+        setThrow(throwFromClientX(event.clientX))
+    })
+
+    stick.addEventListener('keydown', (event) => {
+        const step = event.shiftKey ? 0.2 : 0.05
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            setThrow(throwFromSpeed(settings.hoursPerSecond) - step)
+        } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            setThrow(throwFromSpeed(settings.hoursPerSecond) + step)
+        } else if (event.key === 'Home') {
+            event.preventDefault()
+            setThrow(-1)
+        } else if (event.key === 'End') {
+            event.preventDefault()
+            setThrow(1)
+        } else if (event.key === '0' || event.key === 'Delete') {
+            event.preventDefault()
+            setThrow(0)
         }
     })
-
-    const steer = () => {
-        settings.syncToNow = false
-        sync.checked = false
-        settings.hour = Number(time.value)
-        timeLabel.textContent = formatHour(settings.hour)
-    }
-
-    time.addEventListener('pointerdown', () => {
-        scrubbing = true
-    })
-    time.addEventListener('pointerup', () => {
-        scrubbing = false
-    })
-    time.addEventListener('pointercancel', () => {
-        scrubbing = false
-    })
-    time.addEventListener('input', steer)
 
     document.addEventListener('pointerdown', (event) => {
         if (!isOpen()) return
@@ -91,10 +118,4 @@ export function mountSettings(settings: ClockSettings) {
             setOpen(false, true)
         }
     })
-
-    const tick = () => {
-        if (settings.syncToNow && !scrubbing) paintTime()
-        requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
 }
