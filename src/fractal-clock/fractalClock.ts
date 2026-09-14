@@ -414,6 +414,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let observer: ResizeObserver | undefined
     let dragging: 'hour' | 'minute' | undefined
     let lastDragAngle = 0
+    let resumeRealtimeAfterDrag = false
 
     const themeColors = () => {
         const dark = effectiveClockTheme(settings.theme) === 'dark'
@@ -531,8 +532,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const which = pickHand(x, y)
         if (!which) return
         event.preventDefault()
+        event.stopPropagation()
         dragging = which
         lastDragAngle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
+        resumeRealtimeAfterDrag = settings.syncToNow
         settings.syncToNow = false
         glCanvas.setPointerCapture(event.pointerId)
         glCanvas.style.cursor = 'grabbing'
@@ -555,6 +558,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     const onPointerUp = () => {
         if (!dragging) return
         dragging = undefined
+        if (resumeRealtimeAfterDrag) settings.hoursPerSecond = REALTIME_MINUTE_RPS
+        resumeRealtimeAfterDrag = false
         glCanvas.style.cursor = ''
     }
 

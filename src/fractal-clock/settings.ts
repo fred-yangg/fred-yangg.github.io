@@ -29,7 +29,7 @@ function superscript(n: number) {
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
     const realtime = settings.hoursPerSecond / REALTIME_MINUTE_RPS
-    if (Math.abs(realtime) < 1e-12) return '0.0×'
+    if (Math.abs(realtime) < 1e-12) return 'Paused'
     const sign = realtime < 0 ? '-' : ''
     const abs = Math.abs(realtime)
     const mag = Math.floor(Math.log10(abs))
@@ -50,6 +50,7 @@ export function mountSettings(settings: ClockSettings) {
     const button = document.getElementById('clock-settings-btn')
     const menu = document.getElementById('clock-settings-menu')
     const sync = document.getElementById('setting-sync')
+    const pause = document.getElementById('setting-pause')
     const realtime = document.getElementById('setting-realtime')
     const stick = document.getElementById('setting-stick')
     const knob = document.getElementById('setting-stick-knob')
@@ -59,6 +60,7 @@ export function mountSettings(settings: ClockSettings) {
     }
     if (
         !(sync instanceof HTMLButtonElement)
+        || !(pause instanceof HTMLButtonElement)
         || !(realtime instanceof HTMLButtonElement)
         || !(stick instanceof HTMLElement)
         || !(knob instanceof HTMLElement)
@@ -142,6 +144,15 @@ export function mountSettings(settings: ClockSettings) {
         settings.hoursPerSecond = 0
         settings.hour = hourFromDate()
         latched = false
+        stick.classList.remove('is-dragging')
+        paintStick()
+        paintSpeed()
+    })
+
+    pause.addEventListener('click', () => {
+        settings.syncToNow = false
+        settings.hoursPerSecond = 0
+        latched = true
         stick.classList.remove('is-dragging')
         paintStick()
         paintSpeed()
@@ -247,7 +258,7 @@ export function mountSettings(settings: ClockSettings) {
 
     const tick = () => {
         if (!stick.classList.contains('is-dragging')) {
-            if (settings.syncToNow || Math.abs(settings.hoursPerSecond) < 1e-12) latched = false
+            if (settings.syncToNow) latched = false
             paintStick()
             paintSpeed()
         }
