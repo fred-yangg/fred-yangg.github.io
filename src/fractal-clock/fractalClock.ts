@@ -534,7 +534,6 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         dragging = which
         lastDragAngle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
         settings.syncToNow = false
-        settings.hoursPerSecond = 0
         glCanvas.setPointerCapture(event.pointerId)
         glCanvas.style.cursor = 'grabbing'
     }
