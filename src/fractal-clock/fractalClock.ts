@@ -461,7 +461,6 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
 
         if (dragging) {
             settings.syncToNow = false
-            settings.hoursPerSecond = 0
         } else if (settings.syncToNow) {
             settings.hour = hourFromDate()
             settings.hoursPerSecond = 0

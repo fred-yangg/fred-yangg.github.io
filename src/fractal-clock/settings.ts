@@ -84,7 +84,11 @@ export function mountSettings(settings: ClockSettings) {
         const pad = knobPad()
         knob.style.left = `calc(${pad}px + ${(t + 1) / 2} * (100% - ${pad * 2}px))`
         stick.classList.toggle('is-synced', settings.syncToNow)
-        stick.classList.toggle('is-latched', latched)
+        stick.classList.toggle(
+            'is-paused',
+            !settings.syncToNow && Math.abs(settings.hoursPerSecond) < 1e-12,
+        )
+        stick.classList.toggle('is-latched', latched && Math.abs(settings.hoursPerSecond) >= 1e-12)
         stick.setAttribute('aria-valuenow', t.toFixed(2))
     }
 

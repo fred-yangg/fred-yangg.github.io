@@ -217,8 +217,9 @@ body,
 }
 
 .clock-stick.is-synced .clock-stick-icon-clock,
-.clock-stick.is-dragging:not(.is-latched):not(.is-synced) .clock-stick-icon-unlock,
-.clock-stick.is-latched .clock-stick-icon-lock {
+.clock-stick.is-paused:not(.is-dragging) .clock-stick-icon-pause,
+.clock-stick.is-dragging:not(.is-latched):not(.is-synced):not(.is-paused) .clock-stick-icon-unlock,
+.clock-stick.is-latched:not(.is-paused) .clock-stick-icon-lock {
     display: block;
 }
 
