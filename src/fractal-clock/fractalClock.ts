@@ -259,7 +259,7 @@ function fillInstances(
             if (thinLen >= MIN_LENGTH_PX) {
                 const tx = cx + thickLen * Math.sin(angle)
                 const ty = cy - thickLen * Math.cos(angle)
-                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen))) return count
+                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(maxLen))) return count
             }
         }
         enqueue(
