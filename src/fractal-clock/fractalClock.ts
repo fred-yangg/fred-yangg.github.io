@@ -34,9 +34,7 @@ export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
 }
 
 export function applyClockTheme(theme: ClockTheme) {
-    const root = document.documentElement
-    root.dataset.clockTheme = theme
-    root.style.colorScheme = theme === 'system' ? 'light dark' : theme
+    document.documentElement.dataset.clockTheme = theme
 }
 
 export function loadClockTheme(): ClockTheme {
@@ -557,17 +555,24 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let handLength = 0
     let raf = 0
     let lastTs = performance.now()
-    let lastTheme: 'light' | 'dark' | undefined
+    let lastTheme: string | undefined
     let observer: ResizeObserver | undefined
     let dragging: 'hour' | 'minute' | undefined
     let lastDragAngle = 0
     let resumeRealtimeAfterDrag = false
 
     const themeColors = () => {
-        const dark = effectiveClockTheme(settings.theme) === 'dark'
-        return dark
-            ? {ink: '#f4f4f4', paper: '#111111', inkRgb: [0.957, 0.957, 0.957] as const}
-            : {ink: '#111111', paper: '#f3f2ee', inkRgb: [0.067, 0.067, 0.067] as const}
+        const styles = getComputedStyle(document.documentElement)
+        const paper = styles.getPropertyValue('--clock-paper').trim() || '#f3f2ee'
+        const ink = styles.getPropertyValue('--clock-ink').trim() || '#111111'
+        const parsed = parseHexColor(ink)
+            ?? (() => {
+                const m = ink.match(/rgba?\(\s*([\d.]+)[,\s/]+([\d.]+)[,\s/]+([\d.]+)/)
+                return m
+                    ? [Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255] as const
+                    : [0.067, 0.067, 0.067] as const
+            })()
+        return {ink, paper, inkRgb: parsed}
     }
 
     const layout = () => {
@@ -599,10 +604,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
 
-        const resolved = effectiveClockTheme(settings.theme)
+        applyClockTheme(settings.theme)
+        const resolved = themeColors().ink
         if (resolved !== lastTheme) {
             lastTheme = resolved
-            applyClockTheme(settings.theme)
             layout()
         }
 

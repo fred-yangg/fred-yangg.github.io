@@ -29,7 +29,7 @@ html[data-clock-theme='dark'] {
 }
 
 @media (prefers-color-scheme: dark) {
-    html[data-clock-theme='system'] {
+    html:not([data-clock-theme='light']) {
         color-scheme: dark;
         --clock-paper: #111111;
         --clock-ink: #f4f4f4;
@@ -319,6 +319,15 @@ body,
     margin: 0;
     accent-color: var(--clock-knob);
     cursor: pointer;
+}
+
+.clock-setting-heading {
+    margin: 0.85rem 0 0.4rem;
+    font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-setting-heading + .clock-theme {
+    margin-top: 0;
 }
 
 .clock-theme {
