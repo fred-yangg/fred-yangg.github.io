@@ -1,14 +1,10 @@
-import {hourFromDate, MAX_CLOCK_HOURS_PER_SEC, type ClockSettings} from './fractalClock.ts'
+import {hourFromDate, MAX_ACCEL_RPS2, type ClockSettings} from './fractalClock.ts'
 
-function throwFromSpeed(hoursPerSecond: number) {
-    return Math.max(-1, Math.min(1, hoursPerSecond / MAX_CLOCK_HOURS_PER_SEC))
-}
-
-function formatSpeed(settings: ClockSettings) {
+function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
-    const t = throwFromSpeed(settings.hoursPerSecond)
-    if (Math.abs(t) < 0.02) return '0'
-    return `${t > 0 ? '+' : ''}${t.toFixed(2)}`
+    const v = settings.hoursPerSecond
+    if (Math.abs(v) < 0.005) return '0.00 rps'
+    return `${v > 0 ? '+' : ''}${v.toFixed(2)} rps`
 }
 
 export function mountSettings(settings: ClockSettings) {
@@ -30,19 +26,28 @@ export function mountSettings(settings: ClockSettings) {
         throw new Error('Missing speed settings')
     }
 
-    const paint = () => {
-        const t = settings.syncToNow ? 0 : throwFromSpeed(settings.hoursPerSecond)
+    const throwFromAccel = () => {
+        if (settings.syncToNow) return 0
+        return Math.max(-1, Math.min(1, settings.acceleration / MAX_ACCEL_RPS2))
+    }
+
+    const paintStick = () => {
+        const t = throwFromAccel()
         knob.style.left = `${((t + 1) / 2) * 100}%`
         stick.classList.toggle('is-synced', settings.syncToNow)
         stick.setAttribute('aria-valuenow', t.toFixed(2))
-        speedLabel.textContent = formatSpeed(settings)
+    }
+
+    const paintSpeed = () => {
+        speedLabel.textContent = formatVelocity(settings)
     }
 
     const setThrow = (t: number) => {
         const clamped = Math.abs(t) < 0.04 ? 0 : Math.max(-1, Math.min(1, t))
         settings.syncToNow = false
-        settings.hoursPerSecond = clamped * MAX_CLOCK_HOURS_PER_SEC
-        paint()
+        settings.acceleration = clamped * MAX_ACCEL_RPS2
+        paintStick()
+        paintSpeed()
     }
 
     const throwFromClientX = (clientX: number) => {
@@ -52,7 +57,13 @@ export function mountSettings(settings: ClockSettings) {
         return ((clientX - rect.left - pad) / span) * 2 - 1
     }
 
-    paint()
+    const releaseStick = () => {
+        stick.classList.remove('is-dragging')
+        setThrow(0)
+    }
+
+    paintStick()
+    paintSpeed()
 
     const setOpen = (open: boolean, restoreFocus = false) => {
         button.classList.toggle('is-open', open)
@@ -71,12 +82,16 @@ export function mountSettings(settings: ClockSettings) {
     sync.addEventListener('click', () => {
         settings.syncToNow = true
         settings.hoursPerSecond = 0
+        settings.acceleration = 0
         settings.hour = hourFromDate()
-        paint()
+        stick.classList.remove('is-dragging')
+        paintStick()
+        paintSpeed()
     })
 
     stick.addEventListener('pointerdown', (event) => {
         event.preventDefault()
+        stick.classList.add('is-dragging')
         stick.setPointerCapture(event.pointerId)
         setThrow(throwFromClientX(event.clientX))
     })
@@ -84,24 +99,39 @@ export function mountSettings(settings: ClockSettings) {
         if (!stick.hasPointerCapture(event.pointerId)) return
         setThrow(throwFromClientX(event.clientX))
     })
+    stick.addEventListener('pointerup', releaseStick)
+    stick.addEventListener('pointercancel', releaseStick)
 
     stick.addEventListener('keydown', (event) => {
         const step = event.shiftKey ? 0.2 : 0.05
         if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
             event.preventDefault()
-            setThrow(throwFromSpeed(settings.hoursPerSecond) - step)
+            stick.classList.add('is-dragging')
+            setThrow(throwFromAccel() - step)
         } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
             event.preventDefault()
-            setThrow(throwFromSpeed(settings.hoursPerSecond) + step)
+            stick.classList.add('is-dragging')
+            setThrow(throwFromAccel() + step)
         } else if (event.key === 'Home') {
             event.preventDefault()
+            stick.classList.add('is-dragging')
             setThrow(-1)
         } else if (event.key === 'End') {
             event.preventDefault()
+            stick.classList.add('is-dragging')
             setThrow(1)
-        } else if (event.key === '0' || event.key === 'Delete') {
-            event.preventDefault()
-            setThrow(0)
+        }
+    })
+    stick.addEventListener('keyup', (event) => {
+        if (
+            event.key === 'ArrowLeft'
+            || event.key === 'ArrowRight'
+            || event.key === 'ArrowUp'
+            || event.key === 'ArrowDown'
+            || event.key === 'Home'
+            || event.key === 'End'
+        ) {
+            releaseStick()
         }
     })
 
@@ -118,4 +148,10 @@ export function mountSettings(settings: ClockSettings) {
             setOpen(false, true)
         }
     })
+
+    const tick = () => {
+        paintSpeed()
+        requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
 }

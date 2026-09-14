@@ -2,11 +2,14 @@ export type ClockSettings = {
     syncToNow: boolean
     /** Hours into a 12-hour cycle. */
     hour: number
-    /** Signed clock-hours per second. Ignored while synced. */
+    /** Minute-hand revolutions per second. Clamped to ±MAX_MINUTE_RPS. */
     hoursPerSecond: number
+    /** Minute-hand rps per second. Stick throw; 0 when released. */
+    acceleration: number
 }
 
-export const MAX_CLOCK_HOURS_PER_SEC = 0.4
+export const MAX_MINUTE_RPS = 1
+export const MAX_ACCEL_RPS2 = 2.5
 
 type Hand = {
     enabled: boolean
@@ -345,8 +348,16 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
 
-        if (settings.syncToNow) settings.hour = hourFromDate()
-        else settings.hour += settings.hoursPerSecond * dt
+        if (settings.syncToNow) {
+            settings.hour = hourFromDate()
+            settings.hoursPerSecond = 0
+        } else {
+            settings.hoursPerSecond = Math.max(
+                -MAX_MINUTE_RPS,
+                Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond + settings.acceleration * dt),
+            )
+            settings.hour += settings.hoursPerSecond * dt
+        }
         updateTimeAngles(hands, settings.hour)
         const count = fillInstances(
             instances,
