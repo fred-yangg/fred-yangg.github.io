@@ -9,6 +9,7 @@ import {
     THEME_STORAGE_KEY,
     type ClockSettings,
     type ClockTheme,
+    type GradientCurve,
 } from './fractalClock.ts'
 
 const SUPER = {
@@ -210,7 +211,11 @@ export function mountSettings(settings: ClockSettings) {
             try {
                 localStorage.setItem(
                     GRADIENT_STORAGE_KEY,
-                    JSON.stringify({start: gradStart.value, end: gradEnd.value}),
+                    JSON.stringify({
+                        start: settings.fractalColorStart,
+                        end: settings.fractalColorEnd,
+                        curve: settings.gradientCurve,
+                    }),
                 )
             } catch {
                 // ignore
@@ -218,6 +223,26 @@ export function mountSettings(settings: ClockSettings) {
         }
         gradStart.addEventListener('input', saveGradient)
         gradEnd.addEventListener('input', saveGradient)
+
+        const curveButtons = [...menu.querySelectorAll('[data-curve]')]
+        const paintCurve = () => {
+            for (const el of curveButtons) {
+                if (!(el instanceof HTMLElement)) continue
+                el.classList.toggle('is-active', el.dataset.curve === settings.gradientCurve)
+            }
+        }
+        paintCurve()
+        for (const el of curveButtons) {
+            el.addEventListener('click', () => {
+                if (!(el instanceof HTMLElement)) return
+                const next = el.dataset.curve
+                if (next !== 'linear' && next !== 'proportional' && next !== 'biased') return
+                const curve: GradientCurve = next
+                settings.gradientCurve = curve
+                paintCurve()
+                saveGradient()
+            })
+        }
     }
 
     stick.addEventListener('pointerdown', (event) => {

@@ -1,4 +1,5 @@
 export type ClockTheme = 'light' | 'dark' | 'system'
+export type GradientCurve = 'linear' | 'proportional' | 'biased'
 
 export type ClockSettings = {
     syncToNow: boolean
@@ -9,12 +10,15 @@ export type ClockSettings = {
     theme: ClockTheme
     fractalColorStart: string
     fractalColorEnd: string
+    gradientCurve: GradientCurve
 }
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
 export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
+export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
+const HOUR_GRADIENT_BIAS = 0.98
 
 export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
     if (theme !== 'system') return theme
@@ -35,19 +39,27 @@ export function loadClockTheme(): ClockTheme {
     return 'system'
 }
 
-export function loadFractalGradient(): {start: string, end: string} {
+export function loadFractalGradient(): {start: string, end: string, curve: GradientCurve} {
     try {
         const raw = localStorage.getItem(GRADIENT_STORAGE_KEY)
         if (raw) {
-            const parsed = JSON.parse(raw) as {start?: string, end?: string}
+            const parsed = JSON.parse(raw) as {start?: string, end?: string, curve?: string}
             const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
             const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
-            return {start, end}
+            const curve: GradientCurve =
+                parsed.curve === 'linear' || parsed.curve === 'proportional' || parsed.curve === 'biased'
+                    ? parsed.curve
+                    : DEFAULT_GRADIENT_CURVE
+            return {start, end, curve}
         }
     } catch {
         // ignore
     }
-    return {start: DEFAULT_FRACTAL_COLOR_START, end: DEFAULT_FRACTAL_COLOR_END}
+    return {
+        start: DEFAULT_FRACTAL_COLOR_START,
+        end: DEFAULT_FRACTAL_COLOR_END,
+        curve: DEFAULT_GRADIENT_CURVE,
+    }
 }
 
 function parseHexColor(hex: string): [number, number, number] | null {
@@ -65,6 +77,7 @@ type Hand = {
     rootWidth: number
     /** Fraction of root length that is thick. The rest is a 1px tail to the fractal. */
     rootThickFraction: number
+    isHour: boolean
 }
 
 const SCALE = 1 / Math.SQRT2
@@ -76,7 +89,7 @@ const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
 const MAX_INSTANCES = 1 << 20
 const INSTANCE_FLOATS = 8
-const QUEUE_FLOATS = 5
+const QUEUE_FLOATS = 6
 
 const VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 aCorner;
@@ -185,6 +198,16 @@ function handHit(
     return perp
 }
 
+function maxFractalDepth(rootLength: number) {
+    let depth = 0
+    let len = rootLength * SCALE
+    while (len >= MIN_LENGTH_PX && depth < 40) {
+        depth++
+        len *= SCALE
+    }
+    return Math.max(1, depth)
+}
+
 function lerpColor(a: readonly number[], b: readonly number[], t: number) {
     const u = Math.min(1, Math.max(0, t))
     return [
@@ -204,11 +227,20 @@ function fillInstances(
     startRgb: readonly number[],
     endRgb: readonly number[],
     inkRgb: readonly number[],
+    curve: GradientCurve,
 ) {
     let count = 0
     const maxLen = rootLength * SCALE
     const span = Math.max(maxLen - MIN_LENGTH_PX, 1e-6)
-    const colorAt = (len: number) => lerpColor(startRgb, endRgb, (maxLen - len) / span)
+    const levels = maxFractalDepth(rootLength)
+    const hourBias = curve === 'biased' ? HOUR_GRADIENT_BIAS : 1
+    const colorAt = (len: number, depth: number, bias: number, isHour: boolean) => {
+        const base = curve === 'proportional'
+            ? (maxLen - len) / span
+            : depth / levels
+        const t = base * bias * (isHour ? hourBias : 1)
+        return lerpColor(startRgb, endRgb, t)
+    }
 
     const emit = (
         ox: number,
@@ -234,13 +266,14 @@ function fillInstances(
 
     let qh = 0
     let qt = 0
-    const enqueue = (x: number, y: number, angle: number, len: number, depth: number) => {
+    const enqueue = (x: number, y: number, angle: number, len: number, depth: number, bias: number) => {
         if (qt + QUEUE_FLOATS > queue.length) return
         queue[qt++] = x
         queue[qt++] = y
         queue[qt++] = angle
         queue[qt++] = len
         queue[qt++] = depth
+        queue[qt++] = bias
     }
 
     for (const hand of hands) {
@@ -259,7 +292,7 @@ function fillInstances(
             if (thinLen >= MIN_LENGTH_PX) {
                 const tx = cx + thickLen * Math.sin(angle)
                 const ty = cy - thickLen * Math.cos(angle)
-                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(maxLen))) return count
+                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen, 0, 1, true))) return count
             }
         }
         enqueue(
@@ -268,6 +301,7 @@ function fillInstances(
             angle,
             rootLength * SCALE,
             1,
+            hand.isHour ? hourBias : 1,
         )
     }
 
@@ -277,12 +311,12 @@ function fillInstances(
         const baseAngle = queue[qh++]
         const len = queue[qh++]
         const depth = queue[qh++]
+        const bias = queue[qh++]
         if (len < MIN_LENGTH_PX) continue
-        const rgb = colorAt(len)
         for (const hand of hands) {
             if (!hand.enabled) continue
             const angle = baseAngle + hand.angle
-            if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, rgb)) return count
+            if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, colorAt(len, depth, bias, hand.isHour))) return count
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
             enqueue(
@@ -291,6 +325,7 @@ function fillInstances(
                 angle,
                 childLen,
                 depth + 1,
+                bias * (hand.isHour ? hourBias : 1),
             )
         }
     }
@@ -429,8 +464,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     }
 
     const hands: Hand[] = [
-        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION},
-        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX, rootThickFraction: 1},
+        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION, isHour: true},
+        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX, rootThickFraction: 1, isHour: false},
     ]
 
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
@@ -570,6 +605,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             startRgb,
             endRgb,
             ink,
+            settings.gradientCurve,
         )
 
         gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)

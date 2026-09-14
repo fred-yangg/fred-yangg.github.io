@@ -23,6 +23,7 @@ const settings: ClockSettings = {
     theme: loadClockTheme(),
     fractalColorStart: gradient.start,
     fractalColorEnd: gradient.end,
+    gradientCurve: gradient.curve,
 }
 
 applyClockTheme(settings.theme)
