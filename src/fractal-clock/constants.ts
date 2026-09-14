@@ -4,7 +4,7 @@ export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
 export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
-export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
+export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'biased'
 export const DEFAULT_HOUR_BIAS = 0.9
 export const DEFAULT_MINUTE_BIAS = 1.07
 
