@@ -1,6 +1,6 @@
 import '../styles.css'
 import './settings.css'
-import {startClock, type ClockSettings} from './fractalClock.ts'
+import {hourFromDate, startClock, type ClockSettings} from './fractalClock.ts'
 import {mountSettings} from './settings.ts'
 
 const root = document.getElementById('clock-root')
@@ -9,7 +9,8 @@ if (!root) {
 }
 
 const settings: ClockSettings = {
-    hourHand: false,
+    syncToNow: true,
+    hour: hourFromDate(),
 }
 
 startClock(root, settings)

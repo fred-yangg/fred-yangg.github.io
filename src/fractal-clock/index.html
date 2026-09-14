@@ -31,8 +31,15 @@
     </button>
     <div class="clock-menu" id="clock-settings-menu" role="dialog" aria-label="Clock settings">
         <label class="clock-menu-row">
-            <input type="checkbox" id="setting-hour-hand"/>
-            Hour hand
+            <input type="checkbox" id="setting-sync" checked/>
+            Sync to current time
+        </label>
+        <label class="clock-menu-block">
+            <span class="clock-menu-block-label">
+                Steer
+                <span id="setting-time-label">12:00</span>
+            </span>
+            <input type="range" id="setting-time" min="0" max="12" step="any" value="0"/>
         </label>
     </div>
 </div>

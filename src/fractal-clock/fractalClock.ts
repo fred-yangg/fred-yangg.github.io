@@ -1,15 +1,19 @@
 export type ClockSettings = {
-    hourHand: boolean
+    syncToNow: boolean
+    /** Hours into a 12-hour cycle, 0–12. */
+    hour: number
 }
 
 type Hand = {
     enabled: boolean
     angle: number
+    rootWidth: number
 }
 
 const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
-const ROOT_STROKE_WIDTH_PX = 4
+const ROOT_HOUR_WIDTH_PX = 6
+const ROOT_MINUTE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
 const MAX_INSTANCES = 1 << 20
@@ -66,17 +70,21 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
     return shader
 }
 
-function updateTimeAngles(hands: Hand[]) {
-    const date = new Date()
-    const millisecond = date.getMilliseconds()
-    const second = date.getSeconds() + millisecond / 1000
-    const minute = date.getMinutes() + second / 60
-    const hour = date.getHours() + minute / 60
+export function hourFromDate(date = new Date()) {
+    return (
+        (date.getHours() % 12)
+        + date.getMinutes() / 60
+        + date.getSeconds() / 3600
+        + date.getMilliseconds() / 3_600_000
+    )
+}
 
-    const [hourHand, minuteHand, secondHand] = hands
-    hourHand.angle = ((hour % 12) / 12) * Math.PI * 2
+function updateTimeAngles(hands: Hand[], hour: number) {
+    const wrapped = ((hour % 12) + 12) % 12
+    const minute = (wrapped * 60) % 60
+    const [hourHand, minuteHand] = hands
+    hourHand.angle = (wrapped / 12) * Math.PI * 2
     minuteHand.angle = (minute / 60) * Math.PI * 2
-    secondHand.angle = (second / 60) * Math.PI * 2
 }
 
 function fillInstances(
@@ -93,10 +101,10 @@ function fillInstances(
     stack[sp++] = cy
     stack[sp++] = 0
     stack[sp++] = rootLength
-    stack[sp++] = ROOT_STROKE_WIDTH_PX
+    stack[sp++] = 0
 
     while (sp > 0) {
-        const width = stack[--sp]
+        const depth = stack[--sp]
         const len = stack[--sp]
         const baseAngle = stack[--sp]
         const y = stack[--sp]
@@ -113,7 +121,7 @@ function fillInstances(
             out[i + 1] = y
             out[i + 2] = angle
             out[i + 3] = len
-            out[i + 4] = width
+            out[i + 4] = depth === 0 ? hand.rootWidth : CHILD_STROKE_WIDTH_PX
             count++
 
             const childLen = len * SCALE
@@ -123,7 +131,7 @@ function fillInstances(
             stack[sp++] = y - len * Math.cos(angle)
             stack[sp++] = angle
             stack[sp++] = childLen
-            stack[sp++] = CHILD_STROKE_WIDTH_PX
+            stack[sp++] = depth + 1
         }
     }
 
@@ -255,9 +263,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     if (!numbersCtx) throw new Error('2D canvas is required for clock numbers')
 
     const hands: Hand[] = [
-        {enabled: false, angle: 0},
-        {enabled: true, angle: 0},
-        {enabled: true, angle: 0},
+        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX},
+        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX},
     ]
 
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
@@ -331,8 +338,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         raf = requestAnimationFrame(frame)
         if (cssWidth < 1 || cssHeight < 1) return
 
-        hands[0].enabled = settings.hourHand
-        updateTimeAngles(hands)
+        if (settings.syncToNow) settings.hour = hourFromDate()
+        updateTimeAngles(hands, settings.hour)
         const count = fillInstances(
             instances,
             stack,
