@@ -1,13 +1,31 @@
 html {
     color-scheme: light dark;
-    --clock-paper: #f3f2ee;
-    --clock-ink: #111111;
-    --clock-panel: #ffffff;
-    --clock-muted: #666666;
-    --clock-track: #ececec;
-    --clock-knob: #111111;
-    --clock-knob-ink: #ffffff;
-    --clock-shadow: rgb(0 0 0 / 16%);
+    --clock-light-paper: #f3f2ee;
+    --clock-light-ink: #111111;
+    --clock-light-panel: #ffffff;
+    --clock-light-muted: #666666;
+    --clock-light-track: #ececec;
+    --clock-light-knob: #111111;
+    --clock-light-knob-ink: #ffffff;
+    --clock-light-shadow: rgb(0 0 0 / 16%);
+
+    --clock-dark-paper: #111111;
+    --clock-dark-ink: #f4f4f4;
+    --clock-dark-panel: #1c1c1c;
+    --clock-dark-muted: #9a9a9a;
+    --clock-dark-track: #2a2a2a;
+    --clock-dark-knob: #f4f4f4;
+    --clock-dark-knob-ink: #111111;
+    --clock-dark-shadow: rgb(0 0 0 / 45%);
+
+    --clock-paper: var(--clock-light-paper);
+    --clock-ink: var(--clock-light-ink);
+    --clock-panel: var(--clock-light-panel);
+    --clock-muted: var(--clock-light-muted);
+    --clock-track: var(--clock-light-track);
+    --clock-knob: var(--clock-light-knob);
+    --clock-knob-ink: var(--clock-light-knob-ink);
+    --clock-shadow: var(--clock-light-shadow);
     background: var(--clock-paper);
     color: var(--clock-ink);
 }
@@ -18,27 +36,27 @@ html[data-clock-theme='light'] {
 
 html[data-clock-theme='dark'] {
     color-scheme: dark;
-    --clock-paper: #111111;
-    --clock-ink: #f4f4f4;
-    --clock-panel: #1c1c1c;
-    --clock-muted: #9a9a9a;
-    --clock-track: #2a2a2a;
-    --clock-knob: #f4f4f4;
-    --clock-knob-ink: #111111;
-    --clock-shadow: rgb(0 0 0 / 45%);
+    --clock-paper: var(--clock-dark-paper);
+    --clock-ink: var(--clock-dark-ink);
+    --clock-panel: var(--clock-dark-panel);
+    --clock-muted: var(--clock-dark-muted);
+    --clock-track: var(--clock-dark-track);
+    --clock-knob: var(--clock-dark-knob);
+    --clock-knob-ink: var(--clock-dark-knob-ink);
+    --clock-shadow: var(--clock-dark-shadow);
 }
 
 @media (prefers-color-scheme: dark) {
     html:not([data-clock-theme='light']) {
         color-scheme: dark;
-        --clock-paper: #111111;
-        --clock-ink: #f4f4f4;
-        --clock-panel: #1c1c1c;
-        --clock-muted: #9a9a9a;
-        --clock-track: #2a2a2a;
-        --clock-knob: #f4f4f4;
-        --clock-knob-ink: #111111;
-        --clock-shadow: rgb(0 0 0 / 45%);
+        --clock-paper: var(--clock-dark-paper);
+        --clock-ink: var(--clock-dark-ink);
+        --clock-panel: var(--clock-dark-panel);
+        --clock-muted: var(--clock-dark-muted);
+        --clock-track: var(--clock-dark-track);
+        --clock-knob: var(--clock-dark-knob);
+        --clock-knob-ink: var(--clock-dark-knob-ink);
+        --clock-shadow: var(--clock-dark-shadow);
     }
 }
 
