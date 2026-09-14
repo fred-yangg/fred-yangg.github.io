@@ -126,6 +126,50 @@ function fillInstances(
     return count
 }
 
+type GlyphBox = {
+    left: number
+    right: number
+    ascent: number
+    descent: number
+}
+
+function measureGlyph(ctx: CanvasRenderingContext2D, text: string, fontSize: number): GlyphBox {
+    const m = ctx.measureText(text)
+    const left = m.actualBoundingBoxLeft || m.width / 2
+    const right = m.actualBoundingBoxRight || m.width / 2
+    const ascent = m.actualBoundingBoxAscent || fontSize * 0.8
+    const descent = m.actualBoundingBoxDescent || fontSize * 0.2
+    return {left, right, ascent, descent}
+}
+
+function glyphCornerRadius(cx: number, cy: number, box: GlyphBox) {
+    const corners = [
+        [-box.left, -box.ascent],
+        [box.right, -box.ascent],
+        [-box.left, box.descent],
+        [box.right, box.descent],
+    ]
+    let max = 0
+    for (const [x, y] of corners) {
+        const r = Math.hypot(cx + x, cy + y)
+        if (r > max) max = r
+    }
+    return max
+}
+
+function radiusForGlyph(angle: number, box: GlyphBox, targetOuter: number) {
+    let lo = 0
+    let hi = targetOuter
+    for (let i = 0; i < 24; i++) {
+        const mid = (lo + hi) / 2
+        const cx = mid * Math.cos(angle)
+        const cy = mid * Math.sin(angle)
+        if (glyphCornerRadius(cx, cy, box) > targetOuter) hi = mid
+        else lo = mid
+    }
+    return lo
+}
+
 function drawFace(
     ctx: CanvasRenderingContext2D,
     cssWidth: number,
@@ -137,7 +181,7 @@ function drawFace(
     const tickOuter = discRadius - Math.max(2, discRadius * 0.04)
     const hourTickInner = tickOuter - discRadius * 0.09
     const minuteTickInner = tickOuter - discRadius * 0.04
-    const numberRadius = hourTickInner - fontSize * 0.75
+    const numberOuter = hourTickInner - Math.max(3, discRadius * 0.03)
 
     ctx.clearRect(0, 0, cssWidth, cssHeight)
     ctx.save()
@@ -170,12 +214,11 @@ function drawFace(
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     for (let i = 1; i <= 12; i++) {
+        const label = String(i)
         const angle = -Math.PI / 2 + i * Math.PI / 6
-        ctx.fillText(
-            String(i),
-            numberRadius * Math.cos(angle),
-            numberRadius * Math.sin(angle),
-        )
+        const box = measureGlyph(ctx, label, fontSize)
+        const r = radiusForGlyph(angle, box, numberOuter)
+        ctx.fillText(label, r * Math.cos(angle), r * Math.sin(angle))
     }
     ctx.restore()
 }
