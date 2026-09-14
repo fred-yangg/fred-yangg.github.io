@@ -9,14 +9,11 @@
 .clock-digital {
     position: absolute;
     left: 50%;
-    bottom: 6%;
     z-index: 1;
     transform: translateX(-50%);
     pointer-events: none;
     color: #111;
     font-family: 'DSEG7-Classic', monospace;
-    font-size: clamp(1.35rem, 3.6vw, 2.35rem);
-    letter-spacing: 0.12em;
     line-height: 1;
 }
 

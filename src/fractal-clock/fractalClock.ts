@@ -294,6 +294,9 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     const numbersCtx = numbersCanvas.getContext('2d')
     if (!numbersCtx) throw new Error('2D canvas is required for clock numbers')
     const digitalTime = container.querySelector('#digital-time')
+    if (digitalTime && !(digitalTime instanceof HTMLElement)) {
+        throw new Error('Digital time indicator is not an HTML element')
+    }
 
     const hands: Hand[] = [
         {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION},
@@ -366,6 +369,15 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
         handLength = Math.max(1, maxReach * (1 - SCALE))
         drawFace(numbersCtx, cssWidth, cssHeight, handLength)
+        if (digitalTime) {
+            const discRadius = handLength * 1.1
+            const fontSize = Math.max(8, discRadius * 0.12)
+            const gap = fontSize * 0.4
+            const belowDisc = cssHeight / 2 - discRadius
+            digitalTime.style.fontSize = `${fontSize}px`
+            digitalTime.style.letterSpacing = `${fontSize * 0.08}px`
+            digitalTime.style.bottom = `${Math.max(8, belowDisc - gap - fontSize)}px`
+        }
     }
 
     const frame = (ts: number) => {
