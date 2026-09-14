@@ -1,15 +1,183 @@
+export type ClockTheme = 'light' | 'dark' | 'system'
+export type GradientCurve = 'linear' | 'proportional' | 'biased'
+
+export type ClockSettings = {
+    syncToNow: boolean
+    /** Hours into a 12-hour cycle. */
+    hour: number
+    /** Minute-hand revolutions per second. Clamped to ±MAX_MINUTE_RPS. */
+    hoursPerSecond: number
+    theme: ClockTheme
+    fractalColorStart: string
+    fractalColorEnd: string
+    /** Theme the stored gradient hex values were chosen in. */
+    gradientForTheme: 'light' | 'dark'
+    gradientCurve: GradientCurve
+    hourBias: number
+    minuteBias: number
+}
+
+export const THEME_STORAGE_KEY = 'fractal-clock-theme'
+export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
+export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
+export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
+export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
+export const DEFAULT_HOUR_BIAS = 0.9
+export const DEFAULT_MINUTE_BIAS = 1.07
+
+export function clampBias(value: number, fallback: number) {
+    if (!Number.isFinite(value)) return fallback
+    return Math.max(0, Math.min(2, Number(value.toFixed(2))))
+}
+
+export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
+    if (theme !== 'system') return theme
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+export function applyClockTheme(theme: ClockTheme) {
+    document.documentElement.dataset.clockTheme = theme
+}
+
+export function loadClockTheme(): ClockTheme {
+    try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY)
+        if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+    } catch {
+        // ignore
+    }
+    return 'system'
+}
+
+export function loadFractalGradient(): {
+    start: string
+    end: string
+    forTheme: 'light' | 'dark'
+    curve: GradientCurve
+    hourBias: number
+    minuteBias: number
+} {
+    try {
+        const raw = localStorage.getItem(GRADIENT_STORAGE_KEY)
+        if (raw) {
+            const parsed = JSON.parse(raw) as {
+                start?: string
+                end?: string
+                curve?: string
+                hourBias?: number
+                minuteBias?: number
+                forTheme?: 'light' | 'dark'
+            }
+            const forTheme = parsed.forTheme === 'light' || parsed.forTheme === 'dark'
+                ? parsed.forTheme
+                : effectiveClockTheme(loadClockTheme())
+            const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
+            const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
+            const curve: GradientCurve =
+                parsed.curve === 'linear' || parsed.curve === 'proportional' || parsed.curve === 'biased'
+                    ? parsed.curve
+                    : DEFAULT_GRADIENT_CURVE
+            return {
+                start,
+                end,
+                forTheme,
+                curve,
+                hourBias: clampBias(Number(parsed.hourBias), DEFAULT_HOUR_BIAS),
+                minuteBias: clampBias(Number(parsed.minuteBias), DEFAULT_MINUTE_BIAS),
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return {
+        start: DEFAULT_FRACTAL_COLOR_START,
+        end: DEFAULT_FRACTAL_COLOR_END,
+        forTheme: 'dark',
+        curve: DEFAULT_GRADIENT_CURVE,
+        hourBias: DEFAULT_HOUR_BIAS,
+        minuteBias: DEFAULT_MINUTE_BIAS,
+    }
+}
+
+export function gradientDisplayHex(
+    hex: string,
+    forTheme: 'light' | 'dark',
+    now: 'light' | 'dark',
+) {
+    return forTheme === now ? hex : invertHexLightness(hex)
+}
+
+function parseHexColor(hex: string): [number, number, number] | null {
+    const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim())
+    if (!m) return null
+    return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255]
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const l = (max + min) / 2
+    if (max === min) return [0, 0, l]
+    const d = max - min
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    let h = 0
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+    return [h, s, l]
+}
+
+function hueToRgb(p: number, q: number, t: number) {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    if (s === 0) return [l, l, l]
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)]
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+    const byte = (x: number) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0')
+    return `#${byte(r)}${byte(g)}${byte(b)}`
+}
+
+export function invertHexLightness(hex: string) {
+    const rgb = parseHexColor(hex)
+    if (!rgb) return hex
+    const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2])
+    const [r, g, b] = hslToRgb(h, s, 1 - l)
+    return rgbToHex(r, g, b)
+}
+
+export const MAX_MINUTE_RPS = 3
+export const REALTIME_MINUTE_RPS = 1 / 3600
+
 type Hand = {
     enabled: boolean
     angle: number
+    rootWidth: number
+    /** Fraction of root length that is thick. The rest is a 1px tail to the fractal. */
+    rootThickFraction: number
+    isHour: boolean
 }
 
 const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
-const ROOT_STROKE_WIDTH_PX = 4
+const ROOT_HOUR_WIDTH_PX = 6
+const ROOT_HOUR_THICK_FRACTION = 0.65
+const ROOT_MINUTE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
 const MAX_INSTANCES = 1 << 20
-const INSTANCE_FLOATS = 5
+const INSTANCE_FLOATS = 8
+const QUEUE_FLOATS = 6
 
 const VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 aCorner;
@@ -17,8 +185,11 @@ layout(location = 1) in vec2 aOrigin;
 layout(location = 2) in float aAngle;
 layout(location = 3) in float aLength;
 layout(location = 4) in float aWidth;
+layout(location = 5) in vec3 aColor;
 
 uniform vec2 uResolution;
+
+out vec3 vColor;
 
 void main() {
     vec2 hand = vec2(
@@ -30,6 +201,7 @@ void main() {
     vec2 down = vec2(hand.x, -hand.y);
     vec2 rotated = vec2(down.x * c - down.y * s, down.x * s + down.y * c);
     vec2 canvas = aOrigin + rotated;
+    vColor = aColor;
     gl_Position = vec4(
         canvas.x / uResolution.x * 2.0 - 1.0,
         1.0 - canvas.y / uResolution.y * 2.0,
@@ -42,10 +214,12 @@ void main() {
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
+in vec3 vColor;
+
 out vec4 outColor;
 
 void main() {
-    outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    outColor = vec4(vColor, 1.0);
 }
 `
 
@@ -62,64 +236,188 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
     return shader
 }
 
-function updateTimeAngles(hands: Hand[]) {
-    const date = new Date()
-    const millisecond = date.getMilliseconds()
-    const second = date.getSeconds() + millisecond / 1000
-    const minute = date.getMinutes() + second / 60
-    const hour = date.getHours() + minute / 60
+export function hourFromDate(date = new Date()) {
+    return (
+        (date.getHours() % 12)
+        + date.getMinutes() / 60
+        + date.getSeconds() / 3600
+        + date.getMilliseconds() / 3_600_000
+    )
+}
 
-    const [hourHand, minuteHand, secondHand] = hands
-    hourHand.angle = ((hour % 12) / 12) * Math.PI * 2
+export function formatDigitalTime(hour: number) {
+    const wrapped = ((hour % 12) + 12) % 12
+    const totalMinutes = wrapped * 60
+    const h = Math.floor(totalMinutes / 60) % 12 || 12
+    const m = Math.floor(totalMinutes % 60)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function updateTimeAngles(hands: Hand[], hour: number) {
+    const wrapped = ((hour % 12) + 12) % 12
+    const minute = (wrapped * 60) % 60
+    const [hourHand, minuteHand] = hands
+    hourHand.angle = (wrapped / 12) * Math.PI * 2
     minuteHand.angle = (minute / 60) * Math.PI * 2
-    secondHand.angle = (second / 60) * Math.PI * 2
+}
+
+function wrapPi(delta: number) {
+    const tau = Math.PI * 2
+    return delta - Math.round(delta / tau) * tau
+}
+
+function pointerAngle(dx: number, dy: number) {
+    return Math.atan2(dx, -dy)
+}
+
+function handHit(
+    dx: number,
+    dy: number,
+    angle: number,
+    length: number,
+    hitWidth: number,
+) {
+    const dirx = Math.sin(angle)
+    const diry = -Math.cos(angle)
+    const along = dx * dirx + dy * diry
+    if (along < -hitWidth || along > length + hitWidth) return null
+    const perp = Math.abs(dirx * dy - diry * dx)
+    if (perp > hitWidth) return null
+    return perp
+}
+
+function maxFractalDepth(rootLength: number) {
+    let depth = 0
+    let len = rootLength * SCALE
+    while (len >= MIN_LENGTH_PX && depth < 40) {
+        depth++
+        len *= SCALE
+    }
+    return Math.max(1, depth)
+}
+
+function lerpColor(a: readonly number[], b: readonly number[], t: number) {
+    const u = Math.min(1, Math.max(0, t))
+    return [
+        a[0] + (b[0] - a[0]) * u,
+        a[1] + (b[1] - a[1]) * u,
+        a[2] + (b[2] - a[2]) * u,
+    ] as const
 }
 
 function fillInstances(
     out: Float32Array,
-    stack: Float32Array,
+    queue: Float32Array,
     cx: number,
     cy: number,
     rootLength: number,
     hands: Hand[],
+    startRgb: readonly number[],
+    endRgb: readonly number[],
+    inkRgb: readonly number[],
+    curve: GradientCurve,
+    hourBias: number,
+    minuteBias: number,
 ) {
     let count = 0
-    let sp = 0
-    stack[sp++] = cx
-    stack[sp++] = cy
-    stack[sp++] = 0
-    stack[sp++] = rootLength
-    stack[sp++] = ROOT_STROKE_WIDTH_PX
+    const maxLen = rootLength * SCALE
+    const span = Math.max(maxLen - MIN_LENGTH_PX, 1e-6)
+    const levels = maxFractalDepth(rootLength)
+    const hBias = curve === 'biased' ? hourBias : 1
+    const mBias = curve === 'biased' ? minuteBias : 1
+    const colorAt = (len: number, depth: number, bias: number, isHour: boolean) => {
+        const base = curve === 'linear'
+            ? depth / levels
+            : (maxLen - len) / span
+        const t = base * bias * (isHour ? hBias : mBias)
+        return lerpColor(startRgb, endRgb, t)
+    }
 
-    while (sp > 0) {
-        const width = stack[--sp]
-        const len = stack[--sp]
-        const baseAngle = stack[--sp]
-        const y = stack[--sp]
-        const x = stack[--sp]
+    const emit = (
+        ox: number,
+        oy: number,
+        angle: number,
+        segLen: number,
+        width: number,
+        rgb: readonly number[],
+    ) => {
+        if (count >= MAX_INSTANCES) return false
+        const i = count * INSTANCE_FLOATS
+        out[i] = ox
+        out[i + 1] = oy
+        out[i + 2] = angle
+        out[i + 3] = segLen
+        out[i + 4] = width
+        out[i + 5] = rgb[0]
+        out[i + 6] = rgb[1]
+        out[i + 7] = rgb[2]
+        count++
+        return true
+    }
+
+    let qh = 0
+    let qt = 0
+    const enqueue = (x: number, y: number, angle: number, len: number, depth: number, bias: number) => {
+        if (qt + QUEUE_FLOATS > queue.length) return
+        queue[qt++] = x
+        queue[qt++] = y
+        queue[qt++] = angle
+        queue[qt++] = len
+        queue[qt++] = depth
+        queue[qt++] = bias
+    }
+
+    for (const hand of hands) {
+        if (!hand.enabled) continue
+        const angle = hand.angle
+        const thickLen = rootLength * hand.rootThickFraction
+        if (!emit(cx, cy, angle, thickLen, hand.rootWidth, inkRgb)) return count
+    }
+
+    for (const hand of hands) {
+        if (!hand.enabled) continue
+        const angle = hand.angle
+        const thickLen = rootLength * hand.rootThickFraction
+        if (hand.rootThickFraction < 1) {
+            const thinLen = rootLength - thickLen
+            if (thinLen >= MIN_LENGTH_PX) {
+                const tx = cx + thickLen * Math.sin(angle)
+                const ty = cy - thickLen * Math.cos(angle)
+                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen, 0, 1, true))) return count
+            }
+        }
+        enqueue(
+            cx + rootLength * Math.sin(angle),
+            cy - rootLength * Math.cos(angle),
+            angle,
+            rootLength * SCALE,
+            1,
+            hand.isHour ? hBias : mBias,
+        )
+    }
+
+    while (qh < qt) {
+        const x = queue[qh++]
+        const y = queue[qh++]
+        const baseAngle = queue[qh++]
+        const len = queue[qh++]
+        const depth = queue[qh++]
+        const bias = queue[qh++]
         if (len < MIN_LENGTH_PX) continue
-
         for (const hand of hands) {
             if (!hand.enabled) continue
-            if (count >= MAX_INSTANCES) return count
-
             const angle = baseAngle + hand.angle
-            const i = count * INSTANCE_FLOATS
-            out[i] = x
-            out[i + 1] = y
-            out[i + 2] = angle
-            out[i + 3] = len
-            out[i + 4] = width
-            count++
-
+            if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, colorAt(len, depth, bias, hand.isHour))) return count
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
-            if (sp + INSTANCE_FLOATS > stack.length) continue
-            stack[sp++] = x + len * Math.sin(angle)
-            stack[sp++] = y - len * Math.cos(angle)
-            stack[sp++] = angle
-            stack[sp++] = childLen
-            stack[sp++] = CHILD_STROKE_WIDTH_PX
+            enqueue(
+                x + len * Math.sin(angle),
+                y - len * Math.cos(angle),
+                angle,
+                childLen,
+                depth + 1,
+                bias * (hand.isHour ? hBias : mBias),
+            )
         }
     }
 
@@ -175,6 +473,8 @@ function drawFace(
     cssWidth: number,
     cssHeight: number,
     handLength: number,
+    ink: string,
+    paper: string,
 ) {
     const discRadius = handLength * 1.1
     const fontSize = Math.max(10, discRadius * 0.13)
@@ -187,8 +487,8 @@ function drawFace(
     ctx.save()
     ctx.translate(cssWidth / 2, cssHeight / 2)
 
-    ctx.fillStyle = '#fff'
-    ctx.strokeStyle = '#000'
+    ctx.fillStyle = paper
+    ctx.strokeStyle = ink
     ctx.lineWidth = Math.max(1.5, discRadius * 0.012)
     ctx.beginPath()
     ctx.arc(0, 0, discRadius, 0, Math.PI * 2)
@@ -209,7 +509,7 @@ function drawFace(
         ctx.stroke()
     }
 
-    ctx.fillStyle = '#000'
+    ctx.fillStyle = ink
     ctx.font = `${fontSize}px "Courier New"`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -232,7 +532,7 @@ function resizeCanvas(canvas: HTMLCanvasElement, cssWidth: number, cssHeight: nu
     return dpr
 }
 
-export function startClock(container: HTMLElement) {
+export function startClock(container: HTMLElement, settings: ClockSettings) {
     const glCanvas = container.querySelector('#gl-canvas')
     const numbersCanvas = container.querySelector('#numbers-canvas')
     if (!(glCanvas instanceof HTMLCanvasElement) || !(numbersCanvas instanceof HTMLCanvasElement)) {
@@ -249,15 +549,18 @@ export function startClock(container: HTMLElement) {
 
     const numbersCtx = numbersCanvas.getContext('2d')
     if (!numbersCtx) throw new Error('2D canvas is required for clock numbers')
+    const digitalTime = container.querySelector('#digital-time')
+    if (digitalTime && !(digitalTime instanceof HTMLElement)) {
+        throw new Error('Digital time indicator is not an HTML element')
+    }
 
     const hands: Hand[] = [
-        {enabled: false, angle: 0},
-        {enabled: true, angle: 0},
-        {enabled: true, angle: 0},
+        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION, isHour: true},
+        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX, rootThickFraction: 1, isHour: false},
     ]
 
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
-    const stack = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
+    const queue = new Float32Array(MAX_INSTANCES * QUEUE_FLOATS)
 
     const program = gl.createProgram()
     if (!program) throw new Error('Failed to create program')
@@ -297,10 +600,13 @@ export function startClock(container: HTMLElement) {
     gl.enableVertexAttribArray(4)
     gl.vertexAttribPointer(4, 1, gl.FLOAT, false, instanceStride, 16)
     gl.vertexAttribDivisor(4, 1)
+    gl.enableVertexAttribArray(5)
+    gl.vertexAttribPointer(5, 3, gl.FLOAT, false, instanceStride, 20)
+    gl.vertexAttribDivisor(5, 1)
 
     gl.disable(gl.BLEND)
     gl.enable(gl.DEPTH_TEST)
-    gl.depthFunc(gl.LESS)
+    gl.depthFunc(gl.LEQUAL)
     gl.clearColor(0, 0, 0, 0)
     gl.clearDepth(1)
 
@@ -308,7 +614,26 @@ export function startClock(container: HTMLElement) {
     let cssHeight = 0
     let handLength = 0
     let raf = 0
+    let lastTs = performance.now()
+    let lastTheme: string | undefined
     let observer: ResizeObserver | undefined
+    let dragging: 'hour' | 'minute' | undefined
+    let lastDragAngle = 0
+    let resumeRealtimeAfterDrag = false
+
+    const themeColors = () => {
+        const styles = getComputedStyle(document.documentElement)
+        const paper = styles.getPropertyValue('--clock-paper').trim() || '#f3f2ee'
+        const ink = styles.getPropertyValue('--clock-ink').trim() || '#111111'
+        const parsed = parseHexColor(ink)
+            ?? (() => {
+                const m = ink.match(/rgba?\(\s*([\d.]+)[,\s/]+([\d.]+)[,\s/]+([\d.]+)/)
+                return m
+                    ? [Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255] as const
+                    : [0.067, 0.067, 0.067] as const
+            })()
+        return {ink, paper, inkRgb: parsed}
+    }
 
     const layout = () => {
         cssWidth = container.clientWidth
@@ -320,21 +645,69 @@ export function startClock(container: HTMLElement) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
         const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
         handLength = Math.max(1, maxReach * (1 - SCALE))
-        drawFace(numbersCtx, cssWidth, cssHeight, handLength)
+        const colors = themeColors()
+        drawFace(numbersCtx, cssWidth, cssHeight, handLength, colors.ink, colors.paper)
+        if (digitalTime) {
+            const discRadius = handLength * 1.1
+            const fontSize = Math.max(8, Math.round(discRadius * 0.12))
+            const gap = fontSize * 0.4
+            const belowDisc = cssHeight / 2 - discRadius
+            digitalTime.style.fontSize = `${fontSize}px`
+            digitalTime.style.bottom = `${Math.max(8, Math.round(belowDisc - gap - fontSize))}px`
+        }
     }
 
-    const frame = () => {
+    const frame = (ts: number) => {
         raf = requestAnimationFrame(frame)
+        const dt = Math.min(0.05, (ts - lastTs) / 1000)
+        lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
 
-        updateTimeAngles(hands)
+        applyClockTheme(settings.theme)
+        const resolved = themeColors().ink
+        if (resolved !== lastTheme) {
+            lastTheme = resolved
+            layout()
+        }
+
+        if (dragging) {
+            settings.syncToNow = false
+        } else if (settings.syncToNow) {
+            settings.hour = hourFromDate()
+            settings.hoursPerSecond = 0
+        } else {
+            settings.hoursPerSecond = Math.max(
+                -MAX_MINUTE_RPS,
+                Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond),
+            )
+            settings.hour += settings.hoursPerSecond * dt
+        }
+        updateTimeAngles(hands, settings.hour)
+        if (digitalTime) {
+            const label = formatDigitalTime(settings.hour)
+            if (digitalTime.textContent !== label) digitalTime.textContent = label
+        }
+        const ink = themeColors().inkRgb
+        const nowTheme = effectiveClockTheme(settings.theme)
+        const startRgb = parseHexColor(
+            gradientDisplayHex(settings.fractalColorStart, settings.gradientForTheme, nowTheme),
+        ) ?? parseHexColor(DEFAULT_FRACTAL_COLOR_START)!
+        const endRgb = parseHexColor(
+            gradientDisplayHex(settings.fractalColorEnd, settings.gradientForTheme, nowTheme),
+        ) ?? parseHexColor(DEFAULT_FRACTAL_COLOR_END)!
         const count = fillInstances(
             instances,
-            stack,
+            queue,
             cssWidth / 2,
             cssHeight / 2,
             handLength,
             hands,
+            startRgb,
+            endRgb,
+            ink,
+            settings.gradientCurve,
+            settings.hourBias,
+            settings.minuteBias,
         )
 
         gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
@@ -346,6 +719,77 @@ export function startClock(container: HTMLElement) {
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }
 
+    const pointerLocal = (event: PointerEvent) => {
+        const rect = glCanvas.getBoundingClientRect()
+        return {x: event.clientX - rect.left, y: event.clientY - rect.top}
+    }
+
+    const pickHand = (x: number, y: number) => {
+        const dx = x - cssWidth / 2
+        const dy = y - cssHeight / 2
+        updateTimeAngles(hands, settings.hour)
+        const hourHit = handHit(
+            dx,
+            dy,
+            hands[0].angle,
+            handLength,
+            Math.max(16, ROOT_HOUR_WIDTH_PX * 1.5),
+        )
+        const minuteHit = handHit(
+            dx,
+            dy,
+            hands[1].angle,
+            handLength,
+            Math.max(14, ROOT_MINUTE_WIDTH_PX * 1.5),
+        )
+        if (hourHit == null && minuteHit == null) return
+        if (hourHit == null) return 'minute' as const
+        if (minuteHit == null) return 'hour' as const
+        return hourHit <= minuteHit ? 'hour' as const : 'minute' as const
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+        if (event.button !== 0) return
+        const {x, y} = pointerLocal(event)
+        const which = pickHand(x, y)
+        if (!which) return
+        event.preventDefault()
+        event.stopPropagation()
+        dragging = which
+        lastDragAngle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
+        resumeRealtimeAfterDrag = settings.syncToNow
+        settings.syncToNow = false
+        glCanvas.setPointerCapture(event.pointerId)
+        glCanvas.style.cursor = 'grabbing'
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+        const {x, y} = pointerLocal(event)
+        if (!dragging) {
+            glCanvas.style.cursor = pickHand(x, y) ? 'grab' : ''
+            return
+        }
+        const angle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
+        const delta = wrapPi(angle - lastDragAngle)
+        lastDragAngle = angle
+        settings.hour += dragging === 'minute'
+            ? delta / (Math.PI * 2)
+            : delta / (Math.PI * 2) * 12
+    }
+
+    const onPointerUp = () => {
+        if (!dragging) return
+        dragging = undefined
+        if (resumeRealtimeAfterDrag) settings.hoursPerSecond = REALTIME_MINUTE_RPS
+        resumeRealtimeAfterDrag = false
+        glCanvas.style.cursor = ''
+    }
+
+    glCanvas.addEventListener('pointerdown', onPointerDown)
+    glCanvas.addEventListener('pointermove', onPointerMove)
+    glCanvas.addEventListener('pointerup', onPointerUp)
+    glCanvas.addEventListener('pointercancel', onPointerUp)
+
     observer = new ResizeObserver(layout)
     observer.observe(container)
     layout()
@@ -353,6 +797,10 @@ export function startClock(container: HTMLElement) {
 
     return () => {
         observer?.disconnect()
+        glCanvas.removeEventListener('pointerdown', onPointerDown)
+        glCanvas.removeEventListener('pointermove', onPointerMove)
+        glCanvas.removeEventListener('pointerup', onPointerUp)
+        glCanvas.removeEventListener('pointercancel', onPointerUp)
         cancelAnimationFrame(raf)
         gl.deleteProgram(program)
         gl.deleteShader(vs)

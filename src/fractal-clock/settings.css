@@ -1,0 +1,403 @@
+html {
+    color-scheme: light dark;
+    --clock-paper: #f3f2ee;
+    --clock-ink: #111111;
+    --clock-panel: #ffffff;
+    --clock-muted: #666666;
+    --clock-track: #ececec;
+    --clock-knob: #111111;
+    --clock-knob-ink: #ffffff;
+    --clock-shadow: rgb(0 0 0 / 16%);
+    background: var(--clock-paper);
+    color: var(--clock-ink);
+}
+
+html[data-clock-theme='light'] {
+    color-scheme: light;
+}
+
+html[data-clock-theme='dark'] {
+    color-scheme: dark;
+    --clock-paper: #111111;
+    --clock-ink: #f4f4f4;
+    --clock-panel: #1c1c1c;
+    --clock-muted: #9a9a9a;
+    --clock-track: #2a2a2a;
+    --clock-knob: #f4f4f4;
+    --clock-knob-ink: #111111;
+    --clock-shadow: rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not([data-clock-theme='light']) {
+        color-scheme: dark;
+        --clock-paper: #111111;
+        --clock-ink: #f4f4f4;
+        --clock-panel: #1c1c1c;
+        --clock-muted: #9a9a9a;
+        --clock-track: #2a2a2a;
+        --clock-knob: #f4f4f4;
+        --clock-knob-ink: #111111;
+        --clock-shadow: rgb(0 0 0 / 45%);
+    }
+}
+
+html,
+body,
+#app,
+#clock-root {
+    background: var(--clock-paper);
+    color: var(--clock-ink);
+}
+
+@font-face {
+    font-family: 'DSEG7-Classic';
+    src: url('../../node_modules/dseg/fonts/DSEG7-Classic/DSEG7Classic-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+.clock-digital {
+    position: absolute;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    color: var(--clock-ink);
+    font-family: 'DSEG7-Classic', monospace;
+    line-height: 1;
+    letter-spacing: 0;
+    font-kerning: none;
+    font-variant-ligatures: none;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+}
+
+.clock-settings {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.6rem;
+}
+
+.clock-gear {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 24px var(--clock-shadow);
+    transform-origin: center;
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clock-gear svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.clock-gear:hover:not(.is-open) {
+    transform: scale(1.16) rotate(18deg);
+}
+
+.clock-gear:active {
+    transform: scale(0.9) rotate(-8deg);
+}
+
+.clock-gear.is-open {
+    transform: rotate(90deg);
+}
+
+.clock-gear.is-open:hover {
+    transform: scale(1.1) rotate(90deg);
+}
+
+.clock-gear:focus-visible {
+    outline: 2px solid var(--clock-ink);
+    outline-offset: 3px;
+}
+
+.clock-menu {
+    width: 23.5rem;
+    box-sizing: border-box;
+    padding: 0.85rem 1rem;
+    border-radius: 1rem;
+    background: var(--clock-panel);
+    color: var(--clock-ink);
+    box-shadow: 0 16px 40px var(--clock-shadow);
+    transform-origin: top right;
+    transform: scale(0.45) translate(8px, -8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.2s ease,
+        visibility 0.2s;
+}
+
+.clock-menu.is-open {
+    transform: scale(1) translate(0, 0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.clock-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.clock-speed {
+    margin: 0;
+    font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+#setting-speed-label {
+    display: inline-block;
+    min-width: 4.6rem;
+}
+
+.clock-menu-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.4rem;
+}
+
+.clock-sync {
+    flex: 0 0 auto;
+    padding: 0.35rem 0.65rem;
+    border: none;
+    border-radius: 9999px;
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
+    font: 600 0.72rem/1.2 Inter, system-ui, sans-serif;
+    cursor: pointer;
+}
+
+.clock-sync:hover {
+    filter: brightness(1.15);
+}
+
+.clock-sync:focus-visible {
+    outline: 2px solid var(--clock-ink);
+    outline-offset: 2px;
+}
+
+.clock-stick {
+    position: relative;
+    height: 2.6rem;
+    border-radius: 9999px;
+    background: var(--clock-track);
+    box-shadow: inset 0 1px 4px var(--clock-shadow);
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+}
+
+.clock-stick:active {
+    cursor: grabbing;
+}
+
+.clock-stick.is-synced {
+    opacity: 0.55;
+}
+
+.clock-stick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
+    box-shadow: 0 4px 10px var(--clock-shadow);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: grid;
+    place-items: center;
+    transition: left 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease;
+}
+
+.clock-stick-icon {
+    display: none;
+    width: 0.95rem;
+    height: 0.95rem;
+}
+
+.clock-stick.is-synced .clock-stick-icon-clock,
+.clock-stick.is-paused:not(.is-dragging) .clock-stick-icon-pause,
+.clock-stick.is-dragging:not(.is-latched):not(.is-synced):not(.is-paused) .clock-stick-icon-unlock,
+.clock-stick.is-latched:not(.is-paused) .clock-stick-icon-lock {
+    display: block;
+}
+
+.clock-stick-tip {
+    margin: 0.45rem 0 0;
+    color: var(--clock-muted);
+    font: 500 0.72rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-gradient {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+    font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-gradient-swatches {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.clock-gradient input[type='color'] {
+    width: 2rem;
+    height: 1.6rem;
+    padding: 0;
+    border: 1px solid var(--clock-track);
+    border-radius: 0.35rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+.clock-bias {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        grid-template-rows 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.25s ease,
+        margin-top 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clock-bias.is-open {
+    grid-template-rows: 1fr;
+    margin-top: 0.7rem;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.clock-bias-inner {
+    display: flex;
+    flex-direction: row;
+    gap: 0.75rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.clock-bias-row {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.3rem;
+    font: 500 0.85rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-bias-row span {
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.clock-bias-row input[type='range'] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--clock-knob);
+    cursor: pointer;
+}
+
+.clock-setting-heading {
+    margin: 0.85rem 0 0.4rem;
+    font: 500 0.95rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-setting-heading + .clock-theme {
+    margin-top: 0;
+}
+
+.clock-theme {
+    position: relative;
+    display: flex;
+    gap: 0.15rem;
+    margin-top: 0.85rem;
+    padding: 0.15rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: var(--clock-track);
+}
+
+.clock-theme-pill {
+    position: absolute;
+    top: 0.15rem;
+    bottom: 0.15rem;
+    left: 0;
+    width: 0;
+    border-radius: 9999px;
+    background: var(--clock-knob);
+    pointer-events: none;
+    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.clock-theme-btn {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    padding: 0.32rem 0.4rem;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--clock-ink);
+    font: 600 0.72rem/1.2 Inter, system-ui, sans-serif;
+    cursor: pointer;
+    transition: color 0.25s ease;
+}
+
+.clock-theme-btn.is-active {
+    color: var(--clock-knob-ink);
+}
+
+.clock-stick.is-latched .clock-stick-knob {
+    filter: brightness(0.88);
+}
+
+.clock-stick.is-dragging .clock-stick-knob {
+    transition: none;
+}
+
+.clock-stick:focus-visible {
+    outline: 2px solid var(--clock-ink);
+    outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clock-gear,
+    .clock-menu,
+    .clock-stick-knob,
+    .clock-theme-pill,
+    .clock-bias {
+        transition: opacity 0.15s ease, visibility 0.15s;
+        transform: none;
+    }
+}

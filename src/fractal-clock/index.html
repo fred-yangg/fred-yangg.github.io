@@ -1,15 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-clock-theme="system">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="color-scheme" content="light dark"/>
     <title>Fractal Clock</title>
 </head>
 <body class="m-0">
 <div id="app" class="flex h-screen flex-col">
-    <div id="clock-root" class="relative h-0 w-full flex-1 basis-0 bg-white">
-        <canvas id="numbers-canvas" class="absolute inset-0 size-full"></canvas>
-        <canvas id="gl-canvas" class="absolute inset-0 size-full"></canvas>
+    <div id="clock-root" class="relative h-0 w-full flex-1 basis-0">
+        <canvas id="numbers-canvas" class="absolute inset-0 z-0 size-full"></canvas>
+        <div id="digital-time" class="clock-digital" aria-hidden="true">12:00</div>
+        <canvas id="gl-canvas" class="absolute inset-0 z-[2] size-full touch-none"></canvas>
+    </div>
+</div>
+<div id="clock-settings" class="clock-settings">
+    <button
+        type="button"
+        class="clock-gear"
+        id="clock-settings-btn"
+        aria-label="Clock settings"
+        aria-expanded="false"
+        aria-haspopup="true"
+        aria-controls="clock-settings-menu"
+    >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                fill="currentColor"
+                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.04 7.04 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.16a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"
+            />
+        </svg>
+    </button>
+    <div class="clock-menu" id="clock-settings-menu" role="dialog" aria-label="Clock settings">
+        <div class="clock-menu-head">
+            <p class="clock-speed">Clock speed: <span id="setting-speed-label">Synced</span></p>
+            <div class="clock-menu-actions">
+                <button type="button" class="clock-sync" id="setting-sync">Sync</button>
+                <button type="button" class="clock-sync" id="setting-pause">Pause</button>
+                <button type="button" class="clock-sync" id="setting-realtime">1×</button>
+            </div>
+        </div>
+        <div
+            class="clock-stick is-synced"
+            id="setting-stick"
+            role="slider"
+            aria-label="Hand speed"
+            aria-valuemin="-1"
+            aria-valuemax="1"
+            aria-valuenow="0"
+            tabindex="0"
+        >
+            <div class="clock-stick-knob" id="setting-stick-knob">
+                <svg class="clock-stick-icon clock-stick-icon-unlock" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M17 8h-1V6a4 4 0 0 0-7.75-1.4l1.55.86A2.5 2.5 0 0 1 14 6v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2m0 11H7v-9h10z"/>
+                </svg>
+                <svg class="clock-stick-icon clock-stick-icon-lock" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M17 8h-1V6A4 4 0 0 0 8 6v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2M10 6a2 2 0 1 1 4 0v2h-4zm7 13H7v-9h10z"/>
+                </svg>
+                <svg class="clock-stick-icon clock-stick-icon-clock" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8m.75-12.5h-1.5v5.2l4.1 2.45.75-1.23-3.35-2z"/>
+                </svg>
+                <svg class="clock-stick-icon clock-stick-icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M7 5h3v14H7zm7 0h3v14h-3z"/>
+                </svg>
+            </div>
+        </div>
+        <p class="clock-stick-tip">Pull down to lock the speed.</p>
+        <label class="clock-gradient">
+            Fractal gradient
+            <span class="clock-gradient-swatches">
+                <input type="color" id="setting-grad-start" value="#2fd0e9" aria-label="Gradient start"/>
+                <input type="color" id="setting-grad-end" value="#9a39a7" aria-label="Gradient end"/>
+            </span>
+        </label>
+        <div class="clock-theme" role="radiogroup" aria-label="Gradient curve">
+            <span class="clock-theme-pill" aria-hidden="true"></span>
+            <button type="button" class="clock-theme-btn" data-curve="linear">Linear</button>
+            <button type="button" class="clock-theme-btn is-active" data-curve="proportional">Proportional</button>
+            <button type="button" class="clock-theme-btn" data-curve="biased">Biased</button>
+        </div>
+        <div class="clock-bias" id="setting-bias-sliders">
+            <div class="clock-bias-inner">
+                <label class="clock-bias-row">
+                    <span>Hour bias <span id="setting-hour-bias-label">0.90</span></span>
+                    <input type="range" id="setting-hour-bias" min="0" max="2" step="0.01" value="0.90"/>
+                </label>
+                <label class="clock-bias-row">
+                    <span>Minute bias <span id="setting-minute-bias-label">1.07</span></span>
+                    <input type="range" id="setting-minute-bias" min="0" max="2" step="0.01" value="1.07"/>
+                </label>
+            </div>
+        </div>
+        <p class="clock-setting-heading">Theme</p>
+        <div class="clock-theme" role="radiogroup" aria-label="Theme">
+            <span class="clock-theme-pill" aria-hidden="true"></span>
+            <button type="button" class="clock-theme-btn" data-theme="light">Light</button>
+            <button type="button" class="clock-theme-btn" data-theme="dark">Dark</button>
+            <button type="button" class="clock-theme-btn is-active" data-theme="system">System</button>
+        </div>
     </div>
 </div>
 <script type="module" src="main.ts"></script>
