@@ -7,6 +7,7 @@ const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
 const ROOT_STROKE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
+const VIEW_MARGIN_PX = 8
 const MAX_INSTANCES = 1 << 20
 const INSTANCE_FLOATS = 5
 
@@ -125,33 +126,99 @@ function fillInstances(
     return count
 }
 
-function drawNumbers(
+type GlyphBox = {
+    left: number
+    right: number
+    ascent: number
+    descent: number
+}
+
+function measureGlyph(ctx: CanvasRenderingContext2D, text: string, fontSize: number): GlyphBox {
+    const m = ctx.measureText(text)
+    const left = m.actualBoundingBoxLeft || m.width / 2
+    const right = m.actualBoundingBoxRight || m.width / 2
+    const ascent = m.actualBoundingBoxAscent || fontSize * 0.8
+    const descent = m.actualBoundingBoxDescent || fontSize * 0.2
+    return {left, right, ascent, descent}
+}
+
+function glyphCornerRadius(cx: number, cy: number, box: GlyphBox) {
+    const corners = [
+        [-box.left, -box.ascent],
+        [box.right, -box.ascent],
+        [-box.left, box.descent],
+        [box.right, box.descent],
+    ]
+    let max = 0
+    for (const [x, y] of corners) {
+        const r = Math.hypot(cx + x, cy + y)
+        if (r > max) max = r
+    }
+    return max
+}
+
+function radiusForGlyph(angle: number, box: GlyphBox, targetOuter: number) {
+    let lo = 0
+    let hi = targetOuter
+    for (let i = 0; i < 24; i++) {
+        const mid = (lo + hi) / 2
+        const cx = mid * Math.cos(angle)
+        const cy = mid * Math.sin(angle)
+        if (glyphCornerRadius(cx, cy, box) > targetOuter) hi = mid
+        else lo = mid
+    }
+    return lo
+}
+
+function drawFace(
     ctx: CanvasRenderingContext2D,
     cssWidth: number,
     cssHeight: number,
-    numberRadius: number,
+    handLength: number,
 ) {
+    const discRadius = handLength * 1.1
+    const fontSize = Math.max(10, discRadius * 0.13)
+    const tickOuter = discRadius - Math.max(2, discRadius * 0.04)
+    const hourTickInner = tickOuter - discRadius * 0.09
+    const minuteTickInner = tickOuter - discRadius * 0.04
+    const numberOuter = hourTickInner - Math.max(3, discRadius * 0.03)
+
     ctx.clearRect(0, 0, cssWidth, cssHeight)
     ctx.save()
     ctx.translate(cssWidth / 2, cssHeight / 2)
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 3
+
     ctx.fillStyle = '#fff'
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = Math.max(1.5, discRadius * 0.012)
     ctx.beginPath()
-    ctx.arc(0, 0, numberRadius + 30, 0, Math.PI * 2)
+    ctx.arc(0, 0, discRadius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
+
+    ctx.lineCap = 'butt'
+    for (let i = 0; i < 60; i++) {
+        const angle = -Math.PI / 2 + i * Math.PI / 30
+        const hour = i % 5 === 0
+        const inner = hour ? hourTickInner : minuteTickInner
+        ctx.lineWidth = hour
+            ? Math.max(1.75, discRadius * 0.014)
+            : Math.max(1, discRadius * 0.006)
+        ctx.beginPath()
+        ctx.moveTo(inner * Math.cos(angle), inner * Math.sin(angle))
+        ctx.lineTo(tickOuter * Math.cos(angle), tickOuter * Math.sin(angle))
+        ctx.stroke()
+    }
+
     ctx.fillStyle = '#000'
-    ctx.font = '36px "Courier New"'
+    ctx.font = `${fontSize}px "Courier New"`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     for (let i = 1; i <= 12; i++) {
+        const label = String(i)
         const angle = -Math.PI / 2 + i * Math.PI / 6
-        ctx.fillText(
-            String(i),
-            numberRadius * Math.cos(angle),
-            numberRadius * Math.sin(angle),
-        )
+        const box = measureGlyph(ctx, label, fontSize)
+        const r = radiusForGlyph(angle, box, numberOuter)
+        ctx.fillText(label, r * Math.cos(angle), r * Math.sin(angle))
     }
     ctx.restore()
 }
@@ -240,7 +307,6 @@ export function startClock(container: HTMLElement) {
     let cssWidth = 0
     let cssHeight = 0
     let handLength = 0
-    let numberRadius = 0
     let raf = 0
     let observer: ResizeObserver | undefined
 
@@ -252,9 +318,9 @@ export function startClock(container: HTMLElement) {
         resizeCanvas(numbersCanvas, cssWidth, cssHeight)
         numbersCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-        handLength = Math.min(cssWidth, cssHeight) / 5
-        numberRadius = handLength * 2
-        drawNumbers(numbersCtx, cssWidth, cssHeight, numberRadius)
+        const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
+        handLength = Math.max(1, maxReach * (1 - SCALE))
+        drawFace(numbersCtx, cssWidth, cssHeight, handLength)
     }
 
     const frame = () => {
