@@ -7,6 +7,8 @@ const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
 const ROOT_STROKE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
+const VIEW_MARGIN_PX = 8
+const NUMERAL_RADIUS_OVER_HAND = 1.12
 const MAX_INSTANCES = 1 << 20
 const INSTANCE_FLOATS = 5
 
@@ -130,19 +132,21 @@ function drawNumbers(
     cssWidth: number,
     cssHeight: number,
     numberRadius: number,
+    fontSize: number,
 ) {
+    const discRadius = numberRadius + fontSize * 0.55
     ctx.clearRect(0, 0, cssWidth, cssHeight)
     ctx.save()
     ctx.translate(cssWidth / 2, cssHeight / 2)
     ctx.strokeStyle = '#000'
-    ctx.lineWidth = 3
+    ctx.lineWidth = Math.max(1.5, fontSize * 0.08)
     ctx.fillStyle = '#fff'
     ctx.beginPath()
-    ctx.arc(0, 0, numberRadius + 30, 0, Math.PI * 2)
+    ctx.arc(0, 0, discRadius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
     ctx.fillStyle = '#000'
-    ctx.font = '36px "Courier New"'
+    ctx.font = `${fontSize}px "Courier New"`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     for (let i = 1; i <= 12; i++) {
@@ -252,9 +256,11 @@ export function startClock(container: HTMLElement) {
         resizeCanvas(numbersCanvas, cssWidth, cssHeight)
         numbersCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-        handLength = Math.min(cssWidth, cssHeight) / 5
-        numberRadius = handLength * 2
-        drawNumbers(numbersCtx, cssWidth, cssHeight, numberRadius)
+        const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
+        handLength = Math.max(1, maxReach * (1 - SCALE))
+        numberRadius = handLength * NUMERAL_RADIUS_OVER_HAND
+        const fontSize = Math.max(10, numberRadius * 0.18)
+        drawNumbers(numbersCtx, cssWidth, cssHeight, numberRadius, fontSize)
     }
 
     const frame = () => {
