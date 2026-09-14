@@ -7,9 +7,14 @@ export type ClockSettings = {
     /** Minute-hand revolutions per second. Clamped to ±MAX_MINUTE_RPS. */
     hoursPerSecond: number
     theme: ClockTheme
+    fractalColorStart: string
+    fractalColorEnd: string
 }
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
+export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
+export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
+export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
 
 export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
     if (theme !== 'system') return theme
@@ -28,6 +33,27 @@ export function loadClockTheme(): ClockTheme {
         // ignore
     }
     return 'system'
+}
+
+export function loadFractalGradient(): {start: string, end: string} {
+    try {
+        const raw = localStorage.getItem(GRADIENT_STORAGE_KEY)
+        if (raw) {
+            const parsed = JSON.parse(raw) as {start?: string, end?: string}
+            const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
+            const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
+            return {start, end}
+        }
+    } catch {
+        // ignore
+    }
+    return {start: DEFAULT_FRACTAL_COLOR_START, end: DEFAULT_FRACTAL_COLOR_END}
+}
+
+function parseHexColor(hex: string): [number, number, number] | null {
+    const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim())
+    if (!m) return null
+    return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255]
 }
 
 export const MAX_MINUTE_RPS = 3
@@ -49,7 +75,8 @@ const ROOT_MINUTE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
 const MAX_INSTANCES = 1 << 20
-const INSTANCE_FLOATS = 5
+const INSTANCE_FLOATS = 8
+const QUEUE_FLOATS = 5
 
 const VERTEX_SHADER = `#version 300 es
 layout(location = 0) in vec2 aCorner;
@@ -57,8 +84,11 @@ layout(location = 1) in vec2 aOrigin;
 layout(location = 2) in float aAngle;
 layout(location = 3) in float aLength;
 layout(location = 4) in float aWidth;
+layout(location = 5) in vec3 aColor;
 
 uniform vec2 uResolution;
+
+out vec3 vColor;
 
 void main() {
     vec2 hand = vec2(
@@ -70,6 +100,7 @@ void main() {
     vec2 down = vec2(hand.x, -hand.y);
     vec2 rotated = vec2(down.x * c - down.y * s, down.x * s + down.y * c);
     vec2 canvas = aOrigin + rotated;
+    vColor = aColor;
     gl_Position = vec4(
         canvas.x / uResolution.x * 2.0 - 1.0,
         1.0 - canvas.y / uResolution.y * 2.0,
@@ -82,12 +113,12 @@ void main() {
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
-uniform vec3 uInk;
+in vec3 vColor;
 
 out vec4 outColor;
 
 void main() {
-    outColor = vec4(uInk, 1.0);
+    outColor = vec4(vColor, 1.0);
 }
 `
 
@@ -154,68 +185,119 @@ function handHit(
     return perp
 }
 
+function maxFractalDepth(rootLength: number) {
+    let depth = 0
+    let len = rootLength * SCALE
+    while (len >= MIN_LENGTH_PX && depth < 40) {
+        depth++
+        len *= SCALE
+    }
+    return Math.max(1, depth)
+}
+
+function lerpColor(a: readonly number[], b: readonly number[], t: number) {
+    const u = Math.min(1, Math.max(0, t))
+    return [
+        a[0] + (b[0] - a[0]) * u,
+        a[1] + (b[1] - a[1]) * u,
+        a[2] + (b[2] - a[2]) * u,
+    ] as const
+}
+
 function fillInstances(
     out: Float32Array,
-    stack: Float32Array,
+    queue: Float32Array,
     cx: number,
     cy: number,
     rootLength: number,
     hands: Hand[],
+    startRgb: readonly number[],
+    endRgb: readonly number[],
+    inkRgb: readonly number[],
 ) {
     let count = 0
-    let sp = 0
-    stack[sp++] = cx
-    stack[sp++] = cy
-    stack[sp++] = 0
-    stack[sp++] = rootLength
-    stack[sp++] = 0
+    const levels = maxFractalDepth(rootLength)
+    const colorAt = (depth: number) => lerpColor(startRgb, endRgb, depth / levels)
 
-    while (sp > 0) {
-        const depth = stack[--sp]
-        const len = stack[--sp]
-        const baseAngle = stack[--sp]
-        const y = stack[--sp]
-        const x = stack[--sp]
+    const emit = (
+        ox: number,
+        oy: number,
+        angle: number,
+        segLen: number,
+        width: number,
+        rgb: readonly number[],
+    ) => {
+        if (count >= MAX_INSTANCES) return false
+        const i = count * INSTANCE_FLOATS
+        out[i] = ox
+        out[i + 1] = oy
+        out[i + 2] = angle
+        out[i + 3] = segLen
+        out[i + 4] = width
+        out[i + 5] = rgb[0]
+        out[i + 6] = rgb[1]
+        out[i + 7] = rgb[2]
+        count++
+        return true
+    }
+
+    let qh = 0
+    let qt = 0
+    const enqueue = (x: number, y: number, angle: number, len: number, depth: number) => {
+        if (qt + QUEUE_FLOATS > queue.length) return
+        queue[qt++] = x
+        queue[qt++] = y
+        queue[qt++] = angle
+        queue[qt++] = len
+        queue[qt++] = depth
+    }
+
+    for (const hand of hands) {
+        if (!hand.enabled) continue
+        const angle = hand.angle
+        const thickLen = rootLength * hand.rootThickFraction
+        const tipX = cx + rootLength * Math.sin(angle)
+        const tipY = cy - rootLength * Math.cos(angle)
+        if (hand.rootThickFraction < 1) {
+            const thinLen = rootLength - thickLen
+            if (thinLen >= MIN_LENGTH_PX) {
+                const tx = cx + thickLen * Math.sin(angle)
+                const ty = cy - thickLen * Math.cos(angle)
+                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(0))) return count
+            }
+        }
+        enqueue(tipX, tipY, angle, rootLength * SCALE, 1)
+    }
+
+    while (qh < qt) {
+        const x = queue[qh++]
+        const y = queue[qh++]
+        const baseAngle = queue[qh++]
+        const len = queue[qh++]
+        const depth = queue[qh++]
         if (len < MIN_LENGTH_PX) continue
-
+        const rgb = colorAt(depth)
         for (const hand of hands) {
             if (!hand.enabled) continue
-
             const angle = baseAngle + hand.angle
-            const emit = (ox: number, oy: number, segLen: number, width: number) => {
-                if (count >= MAX_INSTANCES) return false
-                const i = count * INSTANCE_FLOATS
-                out[i] = ox
-                out[i + 1] = oy
-                out[i + 2] = angle
-                out[i + 3] = segLen
-                out[i + 4] = width
-                count++
-                return true
-            }
-
-            if (depth === 0 && hand.rootThickFraction < 1) {
-                const thickLen = len * hand.rootThickFraction
-                const thinLen = len - thickLen
-                if (!emit(x, y, thickLen, hand.rootWidth)) return count
-                if (thinLen >= MIN_LENGTH_PX) {
-                    const tx = x + thickLen * Math.sin(angle)
-                    const ty = y - thickLen * Math.cos(angle)
-                    if (!emit(tx, ty, thinLen, CHILD_STROKE_WIDTH_PX)) return count
-                }
-            } else if (!emit(x, y, len, depth === 0 ? hand.rootWidth : CHILD_STROKE_WIDTH_PX)) {
-                return count
-            }
-
+            if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, rgb)) return count
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
-            if (sp + INSTANCE_FLOATS > stack.length) continue
-            stack[sp++] = x + len * Math.sin(angle)
-            stack[sp++] = y - len * Math.cos(angle)
-            stack[sp++] = angle
-            stack[sp++] = childLen
-            stack[sp++] = depth + 1
+            enqueue(
+                x + len * Math.sin(angle),
+                y - len * Math.cos(angle),
+                angle,
+                childLen,
+                depth + 1,
+            )
         }
+    }
+
+    for (const hand of hands) {
+        if (!hand.enabled) continue
+        const angle = hand.angle
+        const thickLen = rootLength * hand.rootThickFraction
+        if (!emit(cx, cy, angle, thickLen, hand.rootWidth, inkRgb)) return count
     }
 
     return count
@@ -357,7 +439,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     ]
 
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
-    const stack = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
+    const queue = new Float32Array(MAX_INSTANCES * QUEUE_FLOATS)
 
     const program = gl.createProgram()
     if (!program) throw new Error('Failed to create program')
@@ -371,7 +453,6 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     }
     gl.useProgram(program)
     const uResolution = gl.getUniformLocation(program, 'uResolution')
-    const uInk = gl.getUniformLocation(program, 'uInk')
 
     const vao = gl.createVertexArray()
     gl.bindVertexArray(vao)
@@ -398,10 +479,13 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     gl.enableVertexAttribArray(4)
     gl.vertexAttribPointer(4, 1, gl.FLOAT, false, instanceStride, 16)
     gl.vertexAttribDivisor(4, 1)
+    gl.enableVertexAttribArray(5)
+    gl.vertexAttribPointer(5, 3, gl.FLOAT, false, instanceStride, 20)
+    gl.vertexAttribDivisor(5, 1)
 
     gl.disable(gl.BLEND)
     gl.enable(gl.DEPTH_TEST)
-    gl.depthFunc(gl.LESS)
+    gl.depthFunc(gl.LEQUAL)
     gl.clearColor(0, 0, 0, 0)
     gl.clearDepth(1)
 
@@ -476,22 +560,28 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             const label = formatDigitalTime(settings.hour)
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
+        const ink = themeColors().inkRgb
+        const startRgb = parseHexColor(settings.fractalColorStart)
+            ?? parseHexColor(DEFAULT_FRACTAL_COLOR_START)!
+        const endRgb = parseHexColor(settings.fractalColorEnd)
+            ?? parseHexColor(DEFAULT_FRACTAL_COLOR_END)!
         const count = fillInstances(
             instances,
-            stack,
+            queue,
             cssWidth / 2,
             cssHeight / 2,
             handLength,
             hands,
+            startRgb,
+            endRgb,
+            ink,
         )
 
         gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
         gl.useProgram(program)
         gl.bindVertexArray(vao)
-        const ink = themeColors().inkRgb
         gl.uniform2f(uResolution, cssWidth, cssHeight)
-        gl.uniform3f(uInk, ink[0], ink[1], ink[2])
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }

@@ -1,5 +1,8 @@
 import {
     applyClockTheme,
+    DEFAULT_FRACTAL_COLOR_END,
+    DEFAULT_FRACTAL_COLOR_START,
+    GRADIENT_STORAGE_KEY,
     hourFromDate,
     MAX_MINUTE_RPS,
     REALTIME_MINUTE_RPS,
@@ -194,6 +197,27 @@ export function mountSettings(settings: ClockSettings) {
             }
             paintTheme()
         })
+    }
+
+    const gradStart = document.getElementById('setting-grad-start')
+    const gradEnd = document.getElementById('setting-grad-end')
+    if (gradStart instanceof HTMLInputElement && gradEnd instanceof HTMLInputElement) {
+        gradStart.value = settings.fractalColorStart || DEFAULT_FRACTAL_COLOR_START
+        gradEnd.value = settings.fractalColorEnd || DEFAULT_FRACTAL_COLOR_END
+        const saveGradient = () => {
+            settings.fractalColorStart = gradStart.value
+            settings.fractalColorEnd = gradEnd.value
+            try {
+                localStorage.setItem(
+                    GRADIENT_STORAGE_KEY,
+                    JSON.stringify({start: gradStart.value, end: gradEnd.value}),
+                )
+            } catch {
+                // ignore
+            }
+        }
+        gradStart.addEventListener('input', saveGradient)
+        gradEnd.addEventListener('input', saveGradient)
     }
 
     stick.addEventListener('pointerdown', (event) => {
