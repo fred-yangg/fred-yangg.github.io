@@ -13,11 +13,14 @@ type Hand = {
     enabled: boolean
     angle: number
     rootWidth: number
+    /** Fraction of root length that is thick. The rest is a 1px tail to the fractal. */
+    rootThickFraction: number
 }
 
 const SCALE = 1 / Math.SQRT2
 const MIN_LENGTH_PX = 0.5
 const ROOT_HOUR_WIDTH_PX = 6
+const ROOT_HOUR_THICK_FRACTION = 0.65
 const ROOT_MINUTE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
@@ -118,16 +121,32 @@ function fillInstances(
 
         for (const hand of hands) {
             if (!hand.enabled) continue
-            if (count >= MAX_INSTANCES) return count
 
             const angle = baseAngle + hand.angle
-            const i = count * INSTANCE_FLOATS
-            out[i] = x
-            out[i + 1] = y
-            out[i + 2] = angle
-            out[i + 3] = len
-            out[i + 4] = depth === 0 ? hand.rootWidth : CHILD_STROKE_WIDTH_PX
-            count++
+            const emit = (ox: number, oy: number, segLen: number, width: number) => {
+                if (count >= MAX_INSTANCES) return false
+                const i = count * INSTANCE_FLOATS
+                out[i] = ox
+                out[i + 1] = oy
+                out[i + 2] = angle
+                out[i + 3] = segLen
+                out[i + 4] = width
+                count++
+                return true
+            }
+
+            if (depth === 0 && hand.rootThickFraction < 1) {
+                const thickLen = len * hand.rootThickFraction
+                const thinLen = len - thickLen
+                if (!emit(x, y, thickLen, hand.rootWidth)) return count
+                if (thinLen >= MIN_LENGTH_PX) {
+                    const tx = x + thickLen * Math.sin(angle)
+                    const ty = y - thickLen * Math.cos(angle)
+                    if (!emit(tx, ty, thinLen, CHILD_STROKE_WIDTH_PX)) return count
+                }
+            } else if (!emit(x, y, len, depth === 0 ? hand.rootWidth : CHILD_STROKE_WIDTH_PX)) {
+                return count
+            }
 
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
@@ -268,8 +287,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     if (!numbersCtx) throw new Error('2D canvas is required for clock numbers')
 
     const hands: Hand[] = [
-        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX},
-        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX},
+        {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION},
+        {enabled: true, angle: 0, rootWidth: ROOT_MINUTE_WIDTH_PX, rootThickFraction: 1},
     ]
 
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
