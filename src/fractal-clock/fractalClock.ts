@@ -18,7 +18,7 @@ export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
 export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
-const HOUR_GRADIENT_BIAS = 0.98
+const HOUR_GRADIENT_BIAS = 0.95
 
 export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
     if (theme !== 'system') return theme
