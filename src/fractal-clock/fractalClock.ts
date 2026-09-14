@@ -649,12 +649,11 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         drawFace(numbersCtx, cssWidth, cssHeight, handLength, colors.ink, colors.paper)
         if (digitalTime) {
             const discRadius = handLength * 1.1
-            const fontSize = Math.max(8, discRadius * 0.12)
+            const fontSize = Math.max(8, Math.round(discRadius * 0.12))
             const gap = fontSize * 0.4
             const belowDisc = cssHeight / 2 - discRadius
             digitalTime.style.fontSize = `${fontSize}px`
-            digitalTime.style.letterSpacing = `${fontSize * 0.08}px`
-            digitalTime.style.bottom = `${Math.max(8, belowDisc - gap - fontSize)}px`
+            digitalTime.style.bottom = `${Math.max(8, Math.round(belowDisc - gap - fontSize))}px`
         }
     }
 

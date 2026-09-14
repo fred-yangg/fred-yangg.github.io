@@ -60,13 +60,20 @@ body,
 
 .clock-digital {
     position: absolute;
-    left: 50%;
+    right: 0;
+    left: 0;
     z-index: 1;
-    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
     pointer-events: none;
     color: var(--clock-ink);
     font-family: 'DSEG7-Classic', monospace;
     line-height: 1;
+    letter-spacing: 0;
+    font-kerning: none;
+    font-variant-ligatures: none;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
 }
 
 .clock-settings {
