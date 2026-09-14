@@ -87,6 +87,14 @@ export function hourFromDate(date = new Date()) {
     )
 }
 
+export function formatDigitalTime(hour: number) {
+    const wrapped = ((hour % 12) + 12) % 12
+    const totalMinutes = wrapped * 60
+    const h = Math.floor(totalMinutes / 60) % 12 || 12
+    const m = Math.floor(totalMinutes % 60)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 function updateTimeAngles(hands: Hand[], hour: number) {
     const wrapped = ((hour % 12) + 12) % 12
     const minute = (wrapped * 60) % 60
@@ -285,6 +293,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
 
     const numbersCtx = numbersCanvas.getContext('2d')
     if (!numbersCtx) throw new Error('2D canvas is required for clock numbers')
+    const digitalTime = container.querySelector('#digital-time')
 
     const hands: Hand[] = [
         {enabled: true, angle: 0, rootWidth: ROOT_HOUR_WIDTH_PX, rootThickFraction: ROOT_HOUR_THICK_FRACTION},
@@ -376,6 +385,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             settings.hour += settings.hoursPerSecond * dt
         }
         updateTimeAngles(hands, settings.hour)
+        if (digitalTime) {
+            const label = formatDigitalTime(settings.hour)
+            if (digitalTime.textContent !== label) digitalTime.textContent = label
+        }
         const count = fillInstances(
             instances,
             stack,

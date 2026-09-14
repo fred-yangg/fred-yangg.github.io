@@ -3,15 +3,12 @@ import {hourFromDate, MAX_MINUTE_RPS, REALTIME_MINUTE_RPS, type ClockSettings} f
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
     const realtime = settings.hoursPerSecond / REALTIME_MINUTE_RPS
-    if (Math.abs(realtime) < 0.005) return '0×'
+    if (Math.abs(realtime) < 1e-12) return '0.0×'
     const sign = realtime < 0 ? '-' : ''
     const abs = Math.abs(realtime)
-    if (abs >= 10) return `${sign}${Math.round(abs)}×`
-    if (abs >= 1) {
-        const tenths = Math.round(abs * 10) / 10
-        return `${sign}${Number.isInteger(tenths) ? tenths.toFixed(0) : tenths.toFixed(1)}×`
-    }
-    return `${sign}${abs.toFixed(2)}×`
+    const mag = Math.floor(Math.log10(abs))
+    const decimals = Math.max(0, 1 - mag)
+    return `${sign}${abs.toFixed(decimals)}×`
 }
 
 export function mountSettings(settings: ClockSettings) {

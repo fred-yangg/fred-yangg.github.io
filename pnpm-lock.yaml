@@ -24,6 +24,9 @@ importers:
 
   .:
     dependencies:
+      dseg:
+        specifier: ^0.46.0
+        version: 0.46.0
       react:
         specifier: ^19.2.0
         version: 19.3.0
@@ -335,6 +338,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  dseg@0.46.0:
+    resolution: {integrity: sha512-+wigrEmU4uJ75jtg26BFRoQdPXn8IVltzwI1ZDNsSoNdeO4vLpOssS/XNZNo8e3x5tBUBZd2aU0XeGhWniH8FA==}
+    engines: {node: '>=0.10.3'}
 
   enhanced-resolve@5.24.5:
     resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
@@ -749,6 +756,8 @@ snapshots:
   csstype@3.2.3: {}
 
   detect-libc@2.1.2: {}
+
+  dseg@0.46.0: {}
 
   enhanced-resolve@5.24.5:
     dependencies:

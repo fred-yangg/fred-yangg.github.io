@@ -1,3 +1,25 @@
+@font-face {
+    font-family: 'DSEG7-Classic';
+    src: url('../../node_modules/dseg/fonts/DSEG7-Classic/DSEG7Classic-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+.clock-digital {
+    position: absolute;
+    left: 50%;
+    bottom: 6%;
+    z-index: 1;
+    transform: translateX(-50%);
+    pointer-events: none;
+    color: #111;
+    font-family: 'DSEG7-Classic', monospace;
+    font-size: clamp(1.35rem, 3.6vw, 2.35rem);
+    letter-spacing: 0.12em;
+    line-height: 1;
+}
+
 .clock-settings {
     position: fixed;
     top: 1rem;

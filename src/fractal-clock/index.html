@@ -8,8 +8,9 @@
 <body class="m-0">
 <div id="app" class="flex h-screen flex-col">
     <div id="clock-root" class="relative h-0 w-full flex-1 basis-0 bg-white">
-        <canvas id="numbers-canvas" class="absolute inset-0 size-full"></canvas>
-        <canvas id="gl-canvas" class="absolute inset-0 size-full"></canvas>
+        <canvas id="numbers-canvas" class="absolute inset-0 z-0 size-full"></canvas>
+        <div id="digital-time" class="clock-digital" aria-hidden="true">12:00</div>
+        <canvas id="gl-canvas" class="absolute inset-0 z-[2] size-full"></canvas>
     </div>
 </div>
 <div id="clock-settings" class="clock-settings">
