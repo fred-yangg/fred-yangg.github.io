@@ -10,6 +10,8 @@ export type ClockSettings = {
     theme: ClockTheme
     fractalColorStart: string
     fractalColorEnd: string
+    /** Theme the stored gradient hex values were chosen in. */
+    gradientForTheme: 'light' | 'dark'
     gradientCurve: GradientCurve
     hourBias: number
     minuteBias: number
@@ -17,8 +19,8 @@ export type ClockSettings = {
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
-export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
-export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
+export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
+export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
 export const DEFAULT_HOUR_BIAS = 0.9
 export const DEFAULT_MINUTE_BIAS = 1.07
@@ -50,6 +52,7 @@ export function loadClockTheme(): ClockTheme {
 export function loadFractalGradient(): {
     start: string
     end: string
+    forTheme: 'light' | 'dark'
     curve: GradientCurve
     hourBias: number
     minuteBias: number
@@ -63,7 +66,11 @@ export function loadFractalGradient(): {
                 curve?: string
                 hourBias?: number
                 minuteBias?: number
+                forTheme?: 'light' | 'dark'
             }
+            const forTheme = parsed.forTheme === 'light' || parsed.forTheme === 'dark'
+                ? parsed.forTheme
+                : effectiveClockTheme(loadClockTheme())
             const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
             const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
             const curve: GradientCurve =
@@ -73,6 +80,7 @@ export function loadFractalGradient(): {
             return {
                 start,
                 end,
+                forTheme,
                 curve,
                 hourBias: clampBias(Number(parsed.hourBias), DEFAULT_HOUR_BIAS),
                 minuteBias: clampBias(Number(parsed.minuteBias), DEFAULT_MINUTE_BIAS),
@@ -84,16 +92,68 @@ export function loadFractalGradient(): {
     return {
         start: DEFAULT_FRACTAL_COLOR_START,
         end: DEFAULT_FRACTAL_COLOR_END,
+        forTheme: 'dark',
         curve: DEFAULT_GRADIENT_CURVE,
         hourBias: DEFAULT_HOUR_BIAS,
         minuteBias: DEFAULT_MINUTE_BIAS,
     }
 }
 
+export function gradientDisplayHex(
+    hex: string,
+    forTheme: 'light' | 'dark',
+    now: 'light' | 'dark',
+) {
+    return forTheme === now ? hex : invertHexLightness(hex)
+}
+
 function parseHexColor(hex: string): [number, number, number] | null {
     const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim())
     if (!m) return null
     return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255]
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const l = (max + min) / 2
+    if (max === min) return [0, 0, l]
+    const d = max - min
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    let h = 0
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+    return [h, s, l]
+}
+
+function hueToRgb(p: number, q: number, t: number) {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    if (s === 0) return [l, l, l]
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)]
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+    const byte = (x: number) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0')
+    return `#${byte(r)}${byte(g)}${byte(b)}`
+}
+
+export function invertHexLightness(hex: string) {
+    const rgb = parseHexColor(hex)
+    if (!rgb) return hex
+    const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2])
+    const [r, g, b] = hslToRgb(h, s, 1 - l)
+    return rgbToHex(r, g, b)
 }
 
 export const MAX_MINUTE_RPS = 3
@@ -629,10 +689,13 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
         const ink = themeColors().inkRgb
-        const startRgb = parseHexColor(settings.fractalColorStart)
-            ?? parseHexColor(DEFAULT_FRACTAL_COLOR_START)!
-        const endRgb = parseHexColor(settings.fractalColorEnd)
-            ?? parseHexColor(DEFAULT_FRACTAL_COLOR_END)!
+        const nowTheme = effectiveClockTheme(settings.theme)
+        const startRgb = parseHexColor(
+            gradientDisplayHex(settings.fractalColorStart, settings.gradientForTheme, nowTheme),
+        ) ?? parseHexColor(DEFAULT_FRACTAL_COLOR_START)!
+        const endRgb = parseHexColor(
+            gradientDisplayHex(settings.fractalColorEnd, settings.gradientForTheme, nowTheme),
+        ) ?? parseHexColor(DEFAULT_FRACTAL_COLOR_END)!
         const count = fillInstances(
             instances,
             queue,

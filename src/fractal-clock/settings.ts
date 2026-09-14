@@ -3,6 +3,8 @@ import {
     clampBias,
     DEFAULT_FRACTAL_COLOR_END,
     DEFAULT_FRACTAL_COLOR_START,
+    effectiveClockTheme,
+    gradientDisplayHex,
     DEFAULT_HOUR_BIAS,
     DEFAULT_MINUTE_BIAS,
     GRADIENT_STORAGE_KEY,
@@ -191,12 +193,32 @@ export function mountSettings(settings: ClockSettings) {
     })
 
     const themeButtons = [...menu.querySelectorAll('[data-theme]')]
+    const paintGradientPickers = () => {
+        const gradStart = document.getElementById('setting-grad-start')
+        const gradEnd = document.getElementById('setting-grad-end')
+        const now = effectiveClockTheme(settings.theme)
+        if (gradStart instanceof HTMLInputElement) {
+            gradStart.value = gradientDisplayHex(
+                settings.fractalColorStart,
+                settings.gradientForTheme,
+                now,
+            )
+        }
+        if (gradEnd instanceof HTMLInputElement) {
+            gradEnd.value = gradientDisplayHex(
+                settings.fractalColorEnd,
+                settings.gradientForTheme,
+                now,
+            )
+        }
+    }
     const paintTheme = () => {
         for (const el of themeButtons) {
             if (!(el instanceof HTMLElement)) continue
             el.classList.toggle('is-active', el.dataset.theme === settings.theme)
         }
         layoutPills()
+        paintGradientPickers()
     }
     paintTheme()
     for (const el of themeButtons) {
@@ -213,15 +235,18 @@ export function mountSettings(settings: ClockSettings) {
                 // ignore
             }
             paintTheme()
-            layoutPills()
         })
     }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (settings.theme !== 'system') return
+        applyClockTheme('system')
+        paintGradientPickers()
+    })
 
     const gradStart = document.getElementById('setting-grad-start')
     const gradEnd = document.getElementById('setting-grad-end')
     if (gradStart instanceof HTMLInputElement && gradEnd instanceof HTMLInputElement) {
-        gradStart.value = settings.fractalColorStart || DEFAULT_FRACTAL_COLOR_START
-        gradEnd.value = settings.fractalColorEnd || DEFAULT_FRACTAL_COLOR_END
+        paintGradientPickers()
         const hourBias = document.getElementById('setting-hour-bias')
         const minuteBias = document.getElementById('setting-minute-bias')
         const hourBiasLabel = document.getElementById('setting-hour-bias-label')
@@ -229,8 +254,6 @@ export function mountSettings(settings: ClockSettings) {
         const biasSliders = document.getElementById('setting-bias-sliders')
 
         const saveGradient = () => {
-            settings.fractalColorStart = gradStart.value
-            settings.fractalColorEnd = gradEnd.value
             settings.hourBias = clampBias(settings.hourBias, DEFAULT_HOUR_BIAS)
             settings.minuteBias = clampBias(settings.minuteBias, DEFAULT_MINUTE_BIAS)
             try {
@@ -239,6 +262,7 @@ export function mountSettings(settings: ClockSettings) {
                     JSON.stringify({
                         start: settings.fractalColorStart,
                         end: settings.fractalColorEnd,
+                        forTheme: settings.gradientForTheme,
                         curve: settings.gradientCurve,
                         hourBias: settings.hourBias,
                         minuteBias: settings.minuteBias,
@@ -264,8 +288,14 @@ export function mountSettings(settings: ClockSettings) {
             biasSliders?.classList.toggle('is-open', settings.gradientCurve === 'biased')
         }
 
-        gradStart.addEventListener('input', saveGradient)
-        gradEnd.addEventListener('input', saveGradient)
+        const commitPicker = (which: 'start' | 'end', value: string) => {
+            if (which === 'start') settings.fractalColorStart = value
+            else settings.fractalColorEnd = value
+            settings.gradientForTheme = effectiveClockTheme(settings.theme)
+            saveGradient()
+        }
+        gradStart.addEventListener('input', () => commitPicker('start', gradStart.value))
+        gradEnd.addEventListener('input', () => commitPicker('end', gradEnd.value))
 
         const bindBias = (
             input: HTMLInputElement,
