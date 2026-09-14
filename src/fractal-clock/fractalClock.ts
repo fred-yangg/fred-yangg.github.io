@@ -185,16 +185,6 @@ function handHit(
     return perp
 }
 
-function maxFractalDepth(rootLength: number) {
-    let depth = 0
-    let len = rootLength * SCALE
-    while (len >= MIN_LENGTH_PX && depth < 40) {
-        depth++
-        len *= SCALE
-    }
-    return Math.max(1, depth)
-}
-
 function lerpColor(a: readonly number[], b: readonly number[], t: number) {
     const u = Math.min(1, Math.max(0, t))
     return [
@@ -216,8 +206,9 @@ function fillInstances(
     inkRgb: readonly number[],
 ) {
     let count = 0
-    const levels = maxFractalDepth(rootLength)
-    const colorAt = (depth: number) => lerpColor(startRgb, endRgb, depth / levels)
+    const maxLen = rootLength * SCALE
+    const span = Math.max(maxLen - MIN_LENGTH_PX, 1e-6)
+    const colorAt = (len: number) => lerpColor(startRgb, endRgb, (maxLen - len) / span)
 
     const emit = (
         ox: number,
@@ -263,7 +254,7 @@ function fillInstances(
             if (thinLen >= MIN_LENGTH_PX) {
                 const tx = cx + thickLen * Math.sin(angle)
                 const ty = cy - thickLen * Math.cos(angle)
-                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(0))) return count
+                if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen))) return count
             }
         }
         enqueue(tipX, tipY, angle, rootLength * SCALE, 1)
@@ -276,7 +267,7 @@ function fillInstances(
         const len = queue[qh++]
         const depth = queue[qh++]
         if (len < MIN_LENGTH_PX) continue
-        const rgb = colorAt(depth)
+        const rgb = colorAt(len)
         for (const hand of hands) {
             if (!hand.enabled) continue
             const angle = baseAngle + hand.angle
