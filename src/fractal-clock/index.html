@@ -31,8 +31,11 @@
     </button>
     <div class="clock-menu" id="clock-settings-menu" role="dialog" aria-label="Clock settings">
         <div class="clock-menu-head">
-            <p class="clock-speed">Speed: <span id="setting-speed-label">Synced</span></p>
-            <button type="button" class="clock-sync" id="setting-sync">Sync clock</button>
+            <p class="clock-speed">Clock speed: <span id="setting-speed-label">Synced</span></p>
+            <div class="clock-menu-actions">
+                <button type="button" class="clock-sync" id="setting-sync">Sync</button>
+                <button type="button" class="clock-sync" id="setting-realtime">1×</button>
+            </div>
         </div>
         <div
             class="clock-stick is-synced"
@@ -56,7 +59,7 @@
                 </svg>
             </div>
         </div>
-        <p class="clock-stick-tip">Tip: pull down to lock speed</p>
+        <p class="clock-stick-tip">Pull down to lock the speed.</p>
     </div>
 </div>
 <script type="module" src="main.ts"></script>

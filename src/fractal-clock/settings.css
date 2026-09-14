@@ -97,6 +97,12 @@
     min-width: 4.6rem;
 }
 
+.clock-menu-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.4rem;
+}
+
 .clock-sync {
     flex: 0 0 auto;
     padding: 0.35rem 0.65rem;

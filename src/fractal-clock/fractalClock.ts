@@ -7,6 +7,7 @@ export type ClockSettings = {
 }
 
 export const MAX_MINUTE_RPS = 3
+export const REALTIME_MINUTE_RPS = 1 / 3600
 
 type Hand = {
     enabled: boolean

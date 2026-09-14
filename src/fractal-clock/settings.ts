@@ -1,23 +1,24 @@
-import {hourFromDate, MAX_MINUTE_RPS, type ClockSettings} from './fractalClock.ts'
+import {hourFromDate, MAX_MINUTE_RPS, REALTIME_MINUTE_RPS, type ClockSettings} from './fractalClock.ts'
 
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
-    const realtime = settings.hoursPerSecond * 3600
-    if (Math.abs(realtime) < 0.005) return '0X'
+    const realtime = settings.hoursPerSecond / REALTIME_MINUTE_RPS
+    if (Math.abs(realtime) < 0.005) return '0×'
     const sign = realtime < 0 ? '-' : ''
     const abs = Math.abs(realtime)
-    if (abs >= 10) return `${sign}${Math.round(abs)}X`
+    if (abs >= 10) return `${sign}${Math.round(abs)}×`
     if (abs >= 1) {
         const tenths = Math.round(abs * 10) / 10
-        return `${sign}${Number.isInteger(tenths) ? tenths.toFixed(0) : tenths.toFixed(1)}X`
+        return `${sign}${Number.isInteger(tenths) ? tenths.toFixed(0) : tenths.toFixed(1)}×`
     }
-    return `${sign}${abs.toFixed(2)}X`
+    return `${sign}${abs.toFixed(2)}×`
 }
 
 export function mountSettings(settings: ClockSettings) {
     const button = document.getElementById('clock-settings-btn')
     const menu = document.getElementById('clock-settings-menu')
     const sync = document.getElementById('setting-sync')
+    const realtime = document.getElementById('setting-realtime')
     const stick = document.getElementById('setting-stick')
     const knob = document.getElementById('setting-stick-knob')
     const speedLabel = document.getElementById('setting-speed-label')
@@ -26,6 +27,7 @@ export function mountSettings(settings: ClockSettings) {
     }
     if (
         !(sync instanceof HTMLButtonElement)
+        || !(realtime instanceof HTMLButtonElement)
         || !(stick instanceof HTMLElement)
         || !(knob instanceof HTMLElement)
         || !speedLabel
@@ -108,6 +110,15 @@ export function mountSettings(settings: ClockSettings) {
         settings.hoursPerSecond = 0
         settings.hour = hourFromDate()
         latched = false
+        stick.classList.remove('is-dragging')
+        paintStick()
+        paintSpeed()
+    })
+
+    realtime.addEventListener('click', () => {
+        settings.syncToNow = false
+        settings.hoursPerSecond = REALTIME_MINUTE_RPS
+        latched = true
         stick.classList.remove('is-dragging')
         paintStick()
         paintSpeed()
