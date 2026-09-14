@@ -73,21 +73,25 @@
             </span>
         </label>
         <div class="clock-theme" role="radiogroup" aria-label="Gradient curve">
+            <span class="clock-theme-pill" aria-hidden="true"></span>
             <button type="button" class="clock-theme-btn" data-curve="linear">Linear</button>
             <button type="button" class="clock-theme-btn is-active" data-curve="proportional">Proportional</button>
             <button type="button" class="clock-theme-btn" data-curve="biased">Biased</button>
         </div>
-        <div class="clock-bias" id="setting-bias-sliders" hidden>
-            <label class="clock-bias-row">
-                <span>Hour bias <span id="setting-hour-bias-label">0.95</span></span>
-                <input type="range" id="setting-hour-bias" min="0" max="2" step="0.01" value="0.95"/>
-            </label>
-            <label class="clock-bias-row">
-                <span>Minute bias <span id="setting-minute-bias-label">1.00</span></span>
-                <input type="range" id="setting-minute-bias" min="0" max="2" step="0.01" value="1.00"/>
-            </label>
+        <div class="clock-bias" id="setting-bias-sliders">
+            <div class="clock-bias-inner">
+                <label class="clock-bias-row">
+                    <span>Hour bias <span id="setting-hour-bias-label">0.95</span></span>
+                    <input type="range" id="setting-hour-bias" min="0" max="2" step="0.01" value="0.95"/>
+                </label>
+                <label class="clock-bias-row">
+                    <span>Minute bias <span id="setting-minute-bias-label">1.00</span></span>
+                    <input type="range" id="setting-minute-bias" min="0" max="2" step="0.01" value="1.00"/>
+                </label>
+            </div>
         </div>
         <div class="clock-theme" role="radiogroup" aria-label="Theme">
+            <span class="clock-theme-pill" aria-hidden="true"></span>
             <button type="button" class="clock-theme-btn" data-theme="light">Light</button>
             <button type="button" class="clock-theme-btn" data-theme="dark">Dark</button>
             <button type="button" class="clock-theme-btn is-active" data-theme="system">System</button>

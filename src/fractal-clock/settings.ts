@@ -136,10 +136,22 @@ export function mountSettings(settings: ClockSettings) {
     paintStick()
     paintSpeed()
 
+    const layoutPills = () => {
+        for (const group of menu.querySelectorAll('.clock-theme')) {
+            if (!(group instanceof HTMLElement)) continue
+            const pill = group.querySelector('.clock-theme-pill')
+            const active = group.querySelector('.clock-theme-btn.is-active')
+            if (!(pill instanceof HTMLElement) || !(active instanceof HTMLElement)) continue
+            pill.style.width = `${active.offsetWidth}px`
+            pill.style.transform = `translateX(${active.offsetLeft}px)`
+        }
+    }
+
     const setOpen = (open: boolean, restoreFocus = false) => {
         button.classList.toggle('is-open', open)
         menu.classList.toggle('is-open', open)
         button.setAttribute('aria-expanded', String(open))
+        if (open) requestAnimationFrame(layoutPills)
         if (restoreFocus && !open) button.focus()
     }
 
@@ -184,6 +196,7 @@ export function mountSettings(settings: ClockSettings) {
             if (!(el instanceof HTMLElement)) continue
             el.classList.toggle('is-active', el.dataset.theme === settings.theme)
         }
+        layoutPills()
     }
     paintTheme()
     for (const el of themeButtons) {
@@ -200,6 +213,7 @@ export function mountSettings(settings: ClockSettings) {
                 // ignore
             }
             paintTheme()
+            layoutPills()
         })
     }
 
@@ -247,7 +261,7 @@ export function mountSettings(settings: ClockSettings) {
                 hourBiasLabel.textContent = settings.hourBias.toFixed(2)
                 minuteBiasLabel.textContent = settings.minuteBias.toFixed(2)
             }
-            if (biasSliders) biasSliders.hidden = settings.gradientCurve !== 'biased'
+            biasSliders?.classList.toggle('is-open', settings.gradientCurve === 'biased')
         }
 
         gradStart.addEventListener('input', saveGradient)
@@ -293,10 +307,13 @@ export function mountSettings(settings: ClockSettings) {
                 const curve: GradientCurve = next
                 settings.gradientCurve = curve
                 paintCurve()
+                layoutPills()
                 saveGradient()
             })
         }
     }
+
+    layoutPills()
 
     stick.addEventListener('pointerdown', (event) => {
         event.preventDefault()
