@@ -6,7 +6,7 @@ export type ClockSettings = {
     hoursPerSecond: number
 }
 
-export const MAX_MINUTE_RPS = 1
+export const MAX_MINUTE_RPS = 3
 
 type Hand = {
     enabled: boolean

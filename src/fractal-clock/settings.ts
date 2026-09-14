@@ -2,9 +2,16 @@ import {hourFromDate, MAX_MINUTE_RPS, type ClockSettings} from './fractalClock.t
 
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
-    const v = settings.hoursPerSecond
-    if (Math.abs(v) < 0.005) return '0.00 RPS'
-    return `${v > 0 ? '+' : ''}${v.toFixed(2)} RPS`
+    const realtime = settings.hoursPerSecond * 3600
+    if (Math.abs(realtime) < 0.005) return '0X'
+    const sign = realtime < 0 ? '-' : ''
+    const abs = Math.abs(realtime)
+    if (abs >= 10) return `${sign}${Math.round(abs)}X`
+    if (abs >= 1) {
+        const tenths = Math.round(abs * 10) / 10
+        return `${sign}${Number.isInteger(tenths) ? tenths.toFixed(0) : tenths.toFixed(1)}X`
+    }
+    return `${sign}${abs.toFixed(2)}X`
 }
 
 export function mountSettings(settings: ClockSettings) {
@@ -30,7 +37,8 @@ export function mountSettings(settings: ClockSettings) {
 
     const throwFromSpeed = () => {
         if (settings.syncToNow) return 0
-        return Math.max(-1, Math.min(1, Math.cbrt(settings.hoursPerSecond / MAX_MINUTE_RPS)))
+        const n = settings.hoursPerSecond / MAX_MINUTE_RPS
+        return Math.max(-1, Math.min(1, Math.sign(n) * Math.abs(n) ** 0.2))
     }
 
     const knobPad = () => knob.offsetWidth / 2 + 2
@@ -51,7 +59,7 @@ export function mountSettings(settings: ClockSettings) {
     const setThrow = (t: number) => {
         const clamped = Math.max(-1, Math.min(1, t))
         settings.syncToNow = false
-        settings.hoursPerSecond = clamped ** 3 * MAX_MINUTE_RPS
+        settings.hoursPerSecond = clamped ** 5 * MAX_MINUTE_RPS
         paintStick()
         paintSpeed()
     }
