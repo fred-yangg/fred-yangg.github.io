@@ -1,4 +1,5 @@
 html {
+    color-scheme: light dark;
     --clock-paper: #f3f2ee;
     --clock-ink: #111111;
     --clock-panel: #ffffff;
@@ -11,7 +12,12 @@ html {
     color: var(--clock-ink);
 }
 
+html[data-clock-theme='light'] {
+    color-scheme: light;
+}
+
 html[data-clock-theme='dark'] {
+    color-scheme: dark;
     --clock-paper: #111111;
     --clock-ink: #f4f4f4;
     --clock-panel: #1c1c1c;
@@ -20,6 +26,20 @@ html[data-clock-theme='dark'] {
     --clock-knob: #f4f4f4;
     --clock-knob-ink: #111111;
     --clock-shadow: rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+    html[data-clock-theme='system'] {
+        color-scheme: dark;
+        --clock-paper: #111111;
+        --clock-ink: #f4f4f4;
+        --clock-panel: #1c1c1c;
+        --clock-muted: #9a9a9a;
+        --clock-track: #2a2a2a;
+        --clock-knob: #f4f4f4;
+        --clock-knob-ink: #111111;
+        --clock-shadow: rgb(0 0 0 / 45%);
+    }
 }
 
 html,

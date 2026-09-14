@@ -20,8 +20,8 @@ export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
 export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
-export const DEFAULT_HOUR_BIAS = 0.95
-export const DEFAULT_MINUTE_BIAS = 1
+export const DEFAULT_HOUR_BIAS = 0.9
+export const DEFAULT_MINUTE_BIAS = 1.07
 
 export function clampBias(value: number, fallback: number) {
     if (!Number.isFinite(value)) return fallback
@@ -34,7 +34,9 @@ export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
 }
 
 export function applyClockTheme(theme: ClockTheme) {
-    document.documentElement.dataset.clockTheme = effectiveClockTheme(theme)
+    const root = document.documentElement
+    root.dataset.clockTheme = theme
+    root.style.colorScheme = theme === 'system' ? 'light dark' : theme
 }
 
 export function loadClockTheme(): ClockTheme {
