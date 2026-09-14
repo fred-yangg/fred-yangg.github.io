@@ -1,7 +1,10 @@
 import {
     applyClockTheme,
+    clampBias,
     DEFAULT_FRACTAL_COLOR_END,
     DEFAULT_FRACTAL_COLOR_START,
+    DEFAULT_HOUR_BIAS,
+    DEFAULT_MINUTE_BIAS,
     GRADIENT_STORAGE_KEY,
     hourFromDate,
     MAX_MINUTE_RPS,
@@ -205,9 +208,17 @@ export function mountSettings(settings: ClockSettings) {
     if (gradStart instanceof HTMLInputElement && gradEnd instanceof HTMLInputElement) {
         gradStart.value = settings.fractalColorStart || DEFAULT_FRACTAL_COLOR_START
         gradEnd.value = settings.fractalColorEnd || DEFAULT_FRACTAL_COLOR_END
+        const hourBias = document.getElementById('setting-hour-bias')
+        const minuteBias = document.getElementById('setting-minute-bias')
+        const hourBiasLabel = document.getElementById('setting-hour-bias-label')
+        const minuteBiasLabel = document.getElementById('setting-minute-bias-label')
+        const biasSliders = document.getElementById('setting-bias-sliders')
+
         const saveGradient = () => {
             settings.fractalColorStart = gradStart.value
             settings.fractalColorEnd = gradEnd.value
+            settings.hourBias = clampBias(settings.hourBias, DEFAULT_HOUR_BIAS)
+            settings.minuteBias = clampBias(settings.minuteBias, DEFAULT_MINUTE_BIAS)
             try {
                 localStorage.setItem(
                     GRADIENT_STORAGE_KEY,
@@ -215,14 +226,55 @@ export function mountSettings(settings: ClockSettings) {
                         start: settings.fractalColorStart,
                         end: settings.fractalColorEnd,
                         curve: settings.gradientCurve,
+                        hourBias: settings.hourBias,
+                        minuteBias: settings.minuteBias,
                     }),
                 )
             } catch {
                 // ignore
             }
         }
+
+        const paintBias = () => {
+            if (
+                hourBias instanceof HTMLInputElement
+                && minuteBias instanceof HTMLInputElement
+                && hourBiasLabel
+                && minuteBiasLabel
+            ) {
+                hourBias.value = settings.hourBias.toFixed(2)
+                minuteBias.value = settings.minuteBias.toFixed(2)
+                hourBiasLabel.textContent = settings.hourBias.toFixed(2)
+                minuteBiasLabel.textContent = settings.minuteBias.toFixed(2)
+            }
+            if (biasSliders) biasSliders.hidden = settings.gradientCurve !== 'biased'
+        }
+
         gradStart.addEventListener('input', saveGradient)
         gradEnd.addEventListener('input', saveGradient)
+
+        const bindBias = (
+            input: HTMLInputElement,
+            label: HTMLElement,
+            key: 'hourBias' | 'minuteBias',
+            fallback: number,
+        ) => {
+            input.addEventListener('input', () => {
+                settings[key] = clampBias(Number(input.value), fallback)
+                label.textContent = settings[key].toFixed(2)
+                input.value = settings[key].toFixed(2)
+                saveGradient()
+            })
+        }
+        if (
+            hourBias instanceof HTMLInputElement
+            && minuteBias instanceof HTMLInputElement
+            && hourBiasLabel
+            && minuteBiasLabel
+        ) {
+            bindBias(hourBias, hourBiasLabel, 'hourBias', DEFAULT_HOUR_BIAS)
+            bindBias(minuteBias, minuteBiasLabel, 'minuteBias', DEFAULT_MINUTE_BIAS)
+        }
 
         const curveButtons = [...menu.querySelectorAll('[data-curve]')]
         const paintCurve = () => {
@@ -230,6 +282,7 @@ export function mountSettings(settings: ClockSettings) {
                 if (!(el instanceof HTMLElement)) continue
                 el.classList.toggle('is-active', el.dataset.curve === settings.gradientCurve)
             }
+            paintBias()
         }
         paintCurve()
         for (const el of curveButtons) {

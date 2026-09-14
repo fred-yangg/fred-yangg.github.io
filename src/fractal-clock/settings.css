@@ -253,6 +253,37 @@ body,
     cursor: pointer;
 }
 
+.clock-bias {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+}
+
+.clock-bias[hidden] {
+    display: none;
+}
+
+.clock-bias-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font: 500 0.85rem/1.3 Inter, system-ui, sans-serif;
+}
+
+.clock-bias-row span {
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.clock-bias-row input[type='range'] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--clock-knob);
+    cursor: pointer;
+}
+
 .clock-theme {
     display: flex;
     gap: 0.15rem;

@@ -11,6 +11,8 @@ export type ClockSettings = {
     fractalColorStart: string
     fractalColorEnd: string
     gradientCurve: GradientCurve
+    hourBias: number
+    minuteBias: number
 }
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
@@ -18,7 +20,13 @@ export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DEFAULT_FRACTAL_COLOR_START = '#22d3ee'
 export const DEFAULT_FRACTAL_COLOR_END = '#e879f9'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'proportional'
-const HOUR_GRADIENT_BIAS = 0.95
+export const DEFAULT_HOUR_BIAS = 0.95
+export const DEFAULT_MINUTE_BIAS = 1
+
+export function clampBias(value: number, fallback: number) {
+    if (!Number.isFinite(value)) return fallback
+    return Math.max(0, Math.min(2, Number(value.toFixed(2))))
+}
 
 export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
     if (theme !== 'system') return theme
@@ -39,18 +47,36 @@ export function loadClockTheme(): ClockTheme {
     return 'system'
 }
 
-export function loadFractalGradient(): {start: string, end: string, curve: GradientCurve} {
+export function loadFractalGradient(): {
+    start: string
+    end: string
+    curve: GradientCurve
+    hourBias: number
+    minuteBias: number
+} {
     try {
         const raw = localStorage.getItem(GRADIENT_STORAGE_KEY)
         if (raw) {
-            const parsed = JSON.parse(raw) as {start?: string, end?: string, curve?: string}
+            const parsed = JSON.parse(raw) as {
+                start?: string
+                end?: string
+                curve?: string
+                hourBias?: number
+                minuteBias?: number
+            }
             const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
             const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
             const curve: GradientCurve =
                 parsed.curve === 'linear' || parsed.curve === 'proportional' || parsed.curve === 'biased'
                     ? parsed.curve
                     : DEFAULT_GRADIENT_CURVE
-            return {start, end, curve}
+            return {
+                start,
+                end,
+                curve,
+                hourBias: clampBias(Number(parsed.hourBias), DEFAULT_HOUR_BIAS),
+                minuteBias: clampBias(Number(parsed.minuteBias), DEFAULT_MINUTE_BIAS),
+            }
         }
     } catch {
         // ignore
@@ -59,6 +85,8 @@ export function loadFractalGradient(): {start: string, end: string, curve: Gradi
         start: DEFAULT_FRACTAL_COLOR_START,
         end: DEFAULT_FRACTAL_COLOR_END,
         curve: DEFAULT_GRADIENT_CURVE,
+        hourBias: DEFAULT_HOUR_BIAS,
+        minuteBias: DEFAULT_MINUTE_BIAS,
     }
 }
 
@@ -228,17 +256,20 @@ function fillInstances(
     endRgb: readonly number[],
     inkRgb: readonly number[],
     curve: GradientCurve,
+    hourBias: number,
+    minuteBias: number,
 ) {
     let count = 0
     const maxLen = rootLength * SCALE
     const span = Math.max(maxLen - MIN_LENGTH_PX, 1e-6)
     const levels = maxFractalDepth(rootLength)
-    const hourBias = curve === 'biased' ? HOUR_GRADIENT_BIAS : 1
+    const hBias = curve === 'biased' ? hourBias : 1
+    const mBias = curve === 'biased' ? minuteBias : 1
     const colorAt = (len: number, depth: number, bias: number, isHour: boolean) => {
         const base = curve === 'linear'
             ? depth / levels
             : (maxLen - len) / span
-        const t = base * bias * (isHour ? hourBias : 1)
+        const t = base * bias * (isHour ? hBias : mBias)
         return lerpColor(startRgb, endRgb, t)
     }
 
@@ -301,7 +332,7 @@ function fillInstances(
             angle,
             rootLength * SCALE,
             1,
-            hand.isHour ? hourBias : 1,
+            hand.isHour ? hBias : mBias,
         )
     }
 
@@ -325,7 +356,7 @@ function fillInstances(
                 angle,
                 childLen,
                 depth + 1,
-                bias * (hand.isHour ? hourBias : 1),
+                bias * (hand.isHour ? hBias : mBias),
             )
         }
     }
@@ -606,6 +637,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             endRgb,
             ink,
             settings.gradientCurve,
+            settings.hourBias,
+            settings.minuteBias,
         )
 
         gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
