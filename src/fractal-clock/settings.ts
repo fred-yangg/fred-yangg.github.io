@@ -49,7 +49,7 @@ export function mountSettings(settings: ClockSettings) {
     }
 
     const setThrow = (t: number) => {
-        const clamped = Math.abs(t) < 0.04 ? 0 : Math.max(-1, Math.min(1, t))
+        const clamped = Math.max(-1, Math.min(1, t))
         settings.syncToNow = false
         settings.hoursPerSecond = clamped * MAX_MINUTE_RPS
         paintStick()
