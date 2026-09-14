@@ -235,9 +235,9 @@ function fillInstances(
     const levels = maxFractalDepth(rootLength)
     const hourBias = curve === 'biased' ? HOUR_GRADIENT_BIAS : 1
     const colorAt = (len: number, depth: number, bias: number, isHour: boolean) => {
-        const base = curve === 'proportional'
-            ? (maxLen - len) / span
-            : depth / levels
+        const base = curve === 'linear'
+            ? depth / levels
+            : (maxLen - len) / span
         const t = base * bias * (isHour ? hourBias : 1)
         return lerpColor(startRgb, endRgb, t)
     }
