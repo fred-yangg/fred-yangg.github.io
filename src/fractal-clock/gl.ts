@@ -116,7 +116,7 @@ export function createClockGl(canvas: HTMLCanvasElement): ClockGl {
 
     gl.disable(gl.BLEND)
     gl.enable(gl.DEPTH_TEST)
-    gl.depthFunc(gl.LEQUAL)
+    gl.depthFunc(gl.LESS)
     gl.clearColor(0, 0, 0, 0)
     gl.clearDepth(1)
 
@@ -126,7 +126,8 @@ export function createClockGl(canvas: HTMLCanvasElement): ClockGl {
         },
         draw(instances, count, cssWidth, cssHeight) {
             gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf)
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
+            const srcOffset = (MAX_INSTANCES - count) * INSTANCE_FLOATS
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, srcOffset, count * INSTANCE_FLOATS)
             gl.useProgram(program)
             gl.bindVertexArray(vao)
             gl.uniform2f(uResolution, cssWidth, cssHeight)

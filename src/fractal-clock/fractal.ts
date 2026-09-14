@@ -19,13 +19,6 @@ export function createHands(): Hand[] {
     ]
 }
 
-export function handTip(x: number, y: number, angle: number, length: number) {
-    return {
-        x: x + length * Math.sin(angle),
-        y: y - length * Math.cos(angle),
-    }
-}
-
 function maxFractalDepth(rootLength: number) {
     let depth = 0
     let len = rootLength * SCALE
@@ -73,7 +66,9 @@ export function fillInstances(
         rgb: readonly number[],
     ) => {
         if (count >= MAX_INSTANCES) return false
-        const i = count * INSTANCE_FLOATS
+        count++
+        // Tail-first so the GPU draws deepest segments first (LESS rejects overdraw).
+        const i = (MAX_INSTANCES - count) * INSTANCE_FLOATS
         out[i] = ox
         out[i + 1] = oy
         out[i + 2] = angle
@@ -82,7 +77,6 @@ export function fillInstances(
         out[i + 5] = rgb[0]
         out[i + 6] = rgb[1]
         out[i + 7] = rgb[2]
-        count++
         return true
     }
 
@@ -112,14 +106,19 @@ export function fillInstances(
         if (hand.rootThickFraction < 1) {
             const thinLen = rootLength - thickLen
             if (thinLen >= MIN_LENGTH_PX) {
-                const stub = handTip(cx, cy, angle, thickLen)
-                if (!emit(stub.x, stub.y, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen, 0, 1, true))) return count
+                if (!emit(
+                    cx + thickLen * Math.sin(angle),
+                    cy - thickLen * Math.cos(angle),
+                    angle,
+                    thinLen,
+                    CHILD_STROKE_WIDTH_PX,
+                    colorAt(thinLen, 0, 1, true),
+                )) return count
             }
         }
-        const tip = handTip(cx, cy, angle, rootLength)
         enqueue(
-            tip.x,
-            tip.y,
+            cx + rootLength * Math.sin(angle),
+            cy - rootLength * Math.cos(angle),
             angle,
             rootLength * SCALE,
             1,
@@ -141,10 +140,9 @@ export function fillInstances(
             if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, colorAt(len, depth, bias, hand.isHour))) return count
             const childLen = len * SCALE
             if (childLen < MIN_LENGTH_PX) continue
-            const child = handTip(x, y, angle, len)
             enqueue(
-                child.x,
-                child.y,
+                x + len * Math.sin(angle),
+                y - len * Math.cos(angle),
                 angle,
                 childLen,
                 depth + 1,
