@@ -8,6 +8,24 @@ import {
     type ClockTheme,
 } from './fractalClock.ts'
 
+const SUPER = {
+    '-': '⁻',
+    '0': '⁰',
+    '1': '¹',
+    '2': '²',
+    '3': '³',
+    '4': '⁴',
+    '5': '⁵',
+    '6': '⁶',
+    '7': '⁷',
+    '8': '⁸',
+    '9': '⁹',
+} as const
+
+function superscript(n: number) {
+    return String(n).replace(/[-0-9]/g, (c) => SUPER[c as keyof typeof SUPER] ?? c)
+}
+
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
     const realtime = settings.hoursPerSecond / REALTIME_MINUTE_RPS
@@ -15,6 +33,15 @@ function formatVelocity(settings: ClockSettings) {
     const sign = realtime < 0 ? '-' : ''
     const abs = Math.abs(realtime)
     const mag = Math.floor(Math.log10(abs))
+    if (mag <= -5) {
+        let exp = mag
+        let coeff = Number((abs / 10 ** exp).toFixed(1))
+        if (coeff >= 10) {
+            coeff /= 10
+            exp += 1
+        }
+        return `${sign}${coeff.toFixed(1)}×10${superscript(exp)}×`
+    }
     const decimals = Math.max(0, 1 - mag)
     return `${sign}${abs.toFixed(decimals)}×`
 }
