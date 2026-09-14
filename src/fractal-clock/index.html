@@ -7,7 +7,10 @@
 </head>
 <body class="m-0">
 <div id="app" class="flex h-screen flex-col">
-    <div id="clock-root" class="h-0 w-full flex-1 basis-0"></div>
+    <div id="clock-root" class="relative h-0 w-full flex-1 basis-0 bg-white">
+        <canvas id="numbers-canvas" class="absolute inset-0 size-full"></canvas>
+        <canvas id="gl-canvas" class="absolute inset-0 size-full"></canvas>
+    </div>
 </div>
 <script type="module" src="main.ts"></script>
 </body>
