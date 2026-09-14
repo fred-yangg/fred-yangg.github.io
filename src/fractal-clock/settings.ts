@@ -1,4 +1,4 @@
-import {hourFromDate, MAX_ACCEL_RPS2, type ClockSettings} from './fractalClock.ts'
+import {hourFromDate, MAX_MINUTE_RPS, type ClockSettings} from './fractalClock.ts'
 
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
@@ -26,18 +26,21 @@ export function mountSettings(settings: ClockSettings) {
         throw new Error('Missing speed settings')
     }
 
-    const throwFromAccel = () => {
+    let latched = false
+
+    const throwFromSpeed = () => {
         if (settings.syncToNow) return 0
-        return Math.max(-1, Math.min(1, settings.acceleration / MAX_ACCEL_RPS2))
+        return Math.max(-1, Math.min(1, settings.hoursPerSecond / MAX_MINUTE_RPS))
     }
 
     const knobPad = () => knob.offsetWidth / 2 + 2
 
     const paintStick = () => {
-        const t = throwFromAccel()
+        const t = throwFromSpeed()
         const pad = knobPad()
         knob.style.left = `calc(${pad}px + ${(t + 1) / 2} * (100% - ${pad * 2}px))`
         stick.classList.toggle('is-synced', settings.syncToNow)
+        stick.classList.toggle('is-latched', latched)
         stick.setAttribute('aria-valuenow', t.toFixed(2))
     }
 
@@ -48,7 +51,7 @@ export function mountSettings(settings: ClockSettings) {
     const setThrow = (t: number) => {
         const clamped = Math.abs(t) < 0.04 ? 0 : Math.max(-1, Math.min(1, t))
         settings.syncToNow = false
-        settings.acceleration = clamped * MAX_ACCEL_RPS2
+        settings.hoursPerSecond = clamped * MAX_MINUTE_RPS
         paintStick()
         paintSpeed()
     }
@@ -60,9 +63,19 @@ export function mountSettings(settings: ClockSettings) {
         return ((clientX - rect.left - pad) / span) * 2 - 1
     }
 
+    const lockFromClientY = (clientY: number) => {
+        return clientY > stick.getBoundingClientRect().bottom
+    }
+
+    const dragTo = (event: PointerEvent) => {
+        latched = lockFromClientY(event.clientY)
+        setThrow(throwFromClientX(event.clientX))
+    }
+
     const releaseStick = () => {
         stick.classList.remove('is-dragging')
-        setThrow(0)
+        if (!latched) setThrow(0)
+        else paintStick()
     }
 
     paintStick()
@@ -85,8 +98,8 @@ export function mountSettings(settings: ClockSettings) {
     sync.addEventListener('click', () => {
         settings.syncToNow = true
         settings.hoursPerSecond = 0
-        settings.acceleration = 0
         settings.hour = hourFromDate()
+        latched = false
         stick.classList.remove('is-dragging')
         paintStick()
         paintSpeed()
@@ -96,11 +109,11 @@ export function mountSettings(settings: ClockSettings) {
         event.preventDefault()
         stick.classList.add('is-dragging')
         stick.setPointerCapture(event.pointerId)
-        setThrow(throwFromClientX(event.clientX))
+        dragTo(event)
     })
     stick.addEventListener('pointermove', (event) => {
         if (!stick.hasPointerCapture(event.pointerId)) return
-        setThrow(throwFromClientX(event.clientX))
+        dragTo(event)
     })
     stick.addEventListener('pointerup', releaseStick)
     stick.addEventListener('pointercancel', releaseStick)
@@ -109,18 +122,22 @@ export function mountSettings(settings: ClockSettings) {
         const step = event.shiftKey ? 0.2 : 0.05
         if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
             event.preventDefault()
+            latched = false
             stick.classList.add('is-dragging')
-            setThrow(throwFromAccel() - step)
+            setThrow(throwFromSpeed() - step)
         } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
             event.preventDefault()
+            latched = false
             stick.classList.add('is-dragging')
-            setThrow(throwFromAccel() + step)
+            setThrow(throwFromSpeed() + step)
         } else if (event.key === 'Home') {
             event.preventDefault()
+            latched = false
             stick.classList.add('is-dragging')
             setThrow(-1)
         } else if (event.key === 'End') {
             event.preventDefault()
+            latched = false
             stick.classList.add('is-dragging')
             setThrow(1)
         }
@@ -151,10 +168,4 @@ export function mountSettings(settings: ClockSettings) {
             setOpen(false, true)
         }
     })
-
-    const tick = () => {
-        paintSpeed()
-        requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
 }

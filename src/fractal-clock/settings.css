@@ -52,7 +52,7 @@
 }
 
 .clock-menu {
-    width: 17.5rem;
+    width: 20.5rem;
     box-sizing: border-box;
     padding: 0.85rem 1rem;
     border-radius: 1rem;
@@ -144,10 +144,28 @@
     height: 2rem;
     border-radius: 9999px;
     background: #111;
+    color: #fff;
     box-shadow: 0 4px 10px rgb(0 0 0 / 28%);
     transform: translate(-50%, -50%);
     pointer-events: none;
-    transition: left 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: grid;
+    place-items: center;
+    transition: left 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease;
+}
+
+.clock-stick-icon {
+    display: none;
+    width: 0.95rem;
+    height: 0.95rem;
+}
+
+.clock-stick.is-dragging:not(.is-latched) .clock-stick-icon-unlock,
+.clock-stick.is-latched .clock-stick-icon-lock {
+    display: block;
+}
+
+.clock-stick.is-latched .clock-stick-knob {
+    background: #2a2a2a;
 }
 
 .clock-stick.is-dragging .clock-stick-knob {

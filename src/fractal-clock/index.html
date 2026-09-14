@@ -32,19 +32,26 @@
     <div class="clock-menu" id="clock-settings-menu" role="dialog" aria-label="Clock settings">
         <div class="clock-menu-head">
             <p class="clock-speed">Speed: <span id="setting-speed-label">Synced</span></p>
-            <button type="button" class="clock-sync" id="setting-sync">Sync to current time</button>
+            <button type="button" class="clock-sync" id="setting-sync">Sync clock</button>
         </div>
         <div
             class="clock-stick is-synced"
             id="setting-stick"
             role="slider"
-            aria-label="Hand acceleration"
+            aria-label="Hand speed"
             aria-valuemin="-1"
             aria-valuemax="1"
             aria-valuenow="0"
             tabindex="0"
         >
-            <div class="clock-stick-knob" id="setting-stick-knob"></div>
+            <div class="clock-stick-knob" id="setting-stick-knob">
+                <svg class="clock-stick-icon clock-stick-icon-unlock" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M17 8h-1V6a4 4 0 0 0-7.75-1.4l1.55.86A2.5 2.5 0 0 1 14 6v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2m0 11H7v-9h10z"/>
+                </svg>
+                <svg class="clock-stick-icon clock-stick-icon-lock" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M17 8h-1V6A4 4 0 0 0 8 6v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2M10 6a2 2 0 1 1 4 0v2h-4zm7 13H7v-9h10z"/>
+                </svg>
+            </div>
         </div>
     </div>
 </div>

@@ -12,7 +12,6 @@ const settings: ClockSettings = {
     syncToNow: true,
     hour: hourFromDate(),
     hoursPerSecond: 0,
-    acceleration: 0,
 }
 
 startClock(root, settings)

@@ -4,12 +4,9 @@ export type ClockSettings = {
     hour: number
     /** Minute-hand revolutions per second. Clamped to ±MAX_MINUTE_RPS. */
     hoursPerSecond: number
-    /** Minute-hand rps per second. Stick throw; 0 when released. */
-    acceleration: number
 }
 
 export const MAX_MINUTE_RPS = 1
-export const MAX_ACCEL_RPS2 = 2.5
 
 type Hand = {
     enabled: boolean
@@ -354,7 +351,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         } else {
             settings.hoursPerSecond = Math.max(
                 -MAX_MINUTE_RPS,
-                Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond + settings.acceleration * dt),
+                Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond),
             )
             settings.hour += settings.hoursPerSecond * dt
         }
