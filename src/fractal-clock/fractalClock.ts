@@ -1,9 +1,33 @@
+export type ClockTheme = 'light' | 'dark' | 'system'
+
 export type ClockSettings = {
     syncToNow: boolean
     /** Hours into a 12-hour cycle. */
     hour: number
     /** Minute-hand revolutions per second. Clamped to ±MAX_MINUTE_RPS. */
     hoursPerSecond: number
+    theme: ClockTheme
+}
+
+export const THEME_STORAGE_KEY = 'fractal-clock-theme'
+
+export function effectiveClockTheme(theme: ClockTheme): 'light' | 'dark' {
+    if (theme !== 'system') return theme
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+export function applyClockTheme(theme: ClockTheme) {
+    document.documentElement.dataset.clockTheme = effectiveClockTheme(theme)
+}
+
+export function loadClockTheme(): ClockTheme {
+    try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY)
+        if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+    } catch {
+        // ignore
+    }
+    return 'system'
 }
 
 export const MAX_MINUTE_RPS = 3
@@ -58,10 +82,12 @@ void main() {
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
+uniform vec3 uInk;
+
 out vec4 outColor;
 
 void main() {
-    outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    outColor = vec4(uInk, 1.0);
 }
 `
 
@@ -219,6 +245,8 @@ function drawFace(
     cssWidth: number,
     cssHeight: number,
     handLength: number,
+    ink: string,
+    paper: string,
 ) {
     const discRadius = handLength * 1.1
     const fontSize = Math.max(10, discRadius * 0.13)
@@ -231,8 +259,8 @@ function drawFace(
     ctx.save()
     ctx.translate(cssWidth / 2, cssHeight / 2)
 
-    ctx.fillStyle = '#fff'
-    ctx.strokeStyle = '#000'
+    ctx.fillStyle = paper
+    ctx.strokeStyle = ink
     ctx.lineWidth = Math.max(1.5, discRadius * 0.012)
     ctx.beginPath()
     ctx.arc(0, 0, discRadius, 0, Math.PI * 2)
@@ -253,7 +281,7 @@ function drawFace(
         ctx.stroke()
     }
 
-    ctx.fillStyle = '#000'
+    ctx.fillStyle = ink
     ctx.font = `${fontSize}px "Courier New"`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -318,6 +346,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     }
     gl.useProgram(program)
     const uResolution = gl.getUniformLocation(program, 'uResolution')
+    const uInk = gl.getUniformLocation(program, 'uInk')
 
     const vao = gl.createVertexArray()
     gl.bindVertexArray(vao)
@@ -356,7 +385,15 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let handLength = 0
     let raf = 0
     let lastTs = performance.now()
+    let lastTheme: 'light' | 'dark' | undefined
     let observer: ResizeObserver | undefined
+
+    const themeColors = () => {
+        const dark = effectiveClockTheme(settings.theme) === 'dark'
+        return dark
+            ? {ink: '#f4f4f4', paper: '#111111', inkRgb: [0.957, 0.957, 0.957] as const}
+            : {ink: '#111111', paper: '#ffffff', inkRgb: [0.067, 0.067, 0.067] as const}
+    }
 
     const layout = () => {
         cssWidth = container.clientWidth
@@ -368,7 +405,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
         const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
         handLength = Math.max(1, maxReach * (1 - SCALE))
-        drawFace(numbersCtx, cssWidth, cssHeight, handLength)
+        const colors = themeColors()
+        drawFace(numbersCtx, cssWidth, cssHeight, handLength, colors.ink, colors.paper)
         if (digitalTime) {
             const discRadius = handLength * 1.1
             const fontSize = Math.max(8, discRadius * 0.12)
@@ -385,6 +423,13 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const dt = Math.min(0.05, (ts - lastTs) / 1000)
         lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
+
+        const resolved = effectiveClockTheme(settings.theme)
+        if (resolved !== lastTheme) {
+            lastTheme = resolved
+            applyClockTheme(settings.theme)
+            layout()
+        }
 
         if (settings.syncToNow) {
             settings.hour = hourFromDate()
@@ -414,7 +459,9 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
         gl.useProgram(program)
         gl.bindVertexArray(vao)
+        const ink = themeColors().inkRgb
         gl.uniform2f(uResolution, cssWidth, cssHeight)
+        gl.uniform3f(uInk, ink[0], ink[1], ink[2])
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }

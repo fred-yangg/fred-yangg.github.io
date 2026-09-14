@@ -1,4 +1,12 @@
-import {hourFromDate, MAX_MINUTE_RPS, REALTIME_MINUTE_RPS, type ClockSettings} from './fractalClock.ts'
+import {
+    applyClockTheme,
+    hourFromDate,
+    MAX_MINUTE_RPS,
+    REALTIME_MINUTE_RPS,
+    THEME_STORAGE_KEY,
+    type ClockSettings,
+    type ClockTheme,
+} from './fractalClock.ts'
 
 function formatVelocity(settings: ClockSettings) {
     if (settings.syncToNow) return 'Synced'
@@ -120,6 +128,31 @@ export function mountSettings(settings: ClockSettings) {
         paintStick()
         paintSpeed()
     })
+
+    const themeButtons = [...menu.querySelectorAll('[data-theme]')]
+    const paintTheme = () => {
+        for (const el of themeButtons) {
+            if (!(el instanceof HTMLElement)) continue
+            el.classList.toggle('is-active', el.dataset.theme === settings.theme)
+        }
+    }
+    paintTheme()
+    for (const el of themeButtons) {
+        el.addEventListener('click', () => {
+            if (!(el instanceof HTMLElement)) return
+            const next = el.dataset.theme
+            if (next !== 'light' && next !== 'dark' && next !== 'system') return
+            const theme: ClockTheme = next
+            settings.theme = theme
+            applyClockTheme(theme)
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, theme)
+            } catch {
+                // ignore
+            }
+            paintTheme()
+        })
+    }
 
     stick.addEventListener('pointerdown', (event) => {
         event.preventDefault()

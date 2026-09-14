@@ -1,3 +1,35 @@
+html {
+    --clock-paper: #ffffff;
+    --clock-ink: #111111;
+    --clock-panel: #ffffff;
+    --clock-muted: #666666;
+    --clock-track: #ececec;
+    --clock-knob: #111111;
+    --clock-knob-ink: #ffffff;
+    --clock-shadow: rgb(0 0 0 / 16%);
+    background: var(--clock-paper);
+    color: var(--clock-ink);
+}
+
+html[data-clock-theme='dark'] {
+    --clock-paper: #111111;
+    --clock-ink: #f4f4f4;
+    --clock-panel: #1c1c1c;
+    --clock-muted: #9a9a9a;
+    --clock-track: #2a2a2a;
+    --clock-knob: #f4f4f4;
+    --clock-knob-ink: #111111;
+    --clock-shadow: rgb(0 0 0 / 45%);
+}
+
+html,
+body,
+#app,
+#clock-root {
+    background: var(--clock-paper);
+    color: var(--clock-ink);
+}
+
 @font-face {
     font-family: 'DSEG7-Classic';
     src: url('../../node_modules/dseg/fonts/DSEG7-Classic/DSEG7Classic-Regular.woff2') format('woff2');
@@ -12,7 +44,7 @@
     z-index: 1;
     transform: translateX(-50%);
     pointer-events: none;
-    color: #111;
+    color: var(--clock-ink);
     font-family: 'DSEG7-Classic', monospace;
     line-height: 1;
 }
@@ -34,12 +66,12 @@
     padding: 0;
     border: none;
     border-radius: 9999px;
-    background: #111;
-    color: #fff;
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
     cursor: pointer;
     display: grid;
     place-items: center;
-    box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+    box-shadow: 0 8px 24px var(--clock-shadow);
     transform-origin: center;
     transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -66,7 +98,7 @@
 }
 
 .clock-gear:focus-visible {
-    outline: 2px solid #111;
+    outline: 2px solid var(--clock-ink);
     outline-offset: 3px;
 }
 
@@ -75,9 +107,9 @@
     box-sizing: border-box;
     padding: 0.85rem 1rem;
     border-radius: 1rem;
-    background: #fff;
-    color: #111;
-    box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
+    background: var(--clock-panel);
+    color: var(--clock-ink);
+    box-shadow: 0 16px 40px var(--clock-shadow);
     transform-origin: top right;
     transform: scale(0.45) translate(8px, -8px);
     opacity: 0;
@@ -127,18 +159,18 @@
     padding: 0.35rem 0.65rem;
     border: none;
     border-radius: 9999px;
-    background: #111;
-    color: #fff;
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
     font: 600 0.72rem/1.2 Inter, system-ui, sans-serif;
     cursor: pointer;
 }
 
 .clock-sync:hover {
-    background: #333;
+    filter: brightness(1.15);
 }
 
 .clock-sync:focus-visible {
-    outline: 2px solid #111;
+    outline: 2px solid var(--clock-ink);
     outline-offset: 2px;
 }
 
@@ -146,8 +178,8 @@
     position: relative;
     height: 2.6rem;
     border-radius: 9999px;
-    background: #ececec;
-    box-shadow: inset 0 1px 4px rgb(0 0 0 / 18%);
+    background: var(--clock-track);
+    box-shadow: inset 0 1px 4px var(--clock-shadow);
     touch-action: none;
     cursor: grab;
     user-select: none;
@@ -168,9 +200,9 @@
     width: 2rem;
     height: 2rem;
     border-radius: 9999px;
-    background: #111;
-    color: #fff;
-    box-shadow: 0 4px 10px rgb(0 0 0 / 28%);
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
+    box-shadow: 0 4px 10px var(--clock-shadow);
     transform: translate(-50%, -50%);
     pointer-events: none;
     display: grid;
@@ -192,12 +224,37 @@
 
 .clock-stick-tip {
     margin: 0.45rem 0 0;
-    color: #666;
+    color: var(--clock-muted);
     font: 500 0.72rem/1.3 Inter, system-ui, sans-serif;
 }
 
+.clock-theme {
+    display: flex;
+    gap: 0.15rem;
+    margin-top: 0.85rem;
+    padding: 0.15rem;
+    border-radius: 9999px;
+    background: var(--clock-track);
+}
+
+.clock-theme-btn {
+    flex: 1;
+    padding: 0.32rem 0.4rem;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--clock-ink);
+    font: 600 0.72rem/1.2 Inter, system-ui, sans-serif;
+    cursor: pointer;
+}
+
+.clock-theme-btn.is-active {
+    background: var(--clock-knob);
+    color: var(--clock-knob-ink);
+}
+
 .clock-stick.is-latched .clock-stick-knob {
-    background: #2a2a2a;
+    filter: brightness(0.88);
 }
 
 .clock-stick.is-dragging .clock-stick-knob {
@@ -205,7 +262,7 @@
 }
 
 .clock-stick:focus-visible {
-    outline: 2px solid #111;
+    outline: 2px solid var(--clock-ink);
     outline-offset: 3px;
 }
 
