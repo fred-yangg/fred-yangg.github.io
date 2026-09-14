@@ -31,9 +31,12 @@ export function mountSettings(settings: ClockSettings) {
         return Math.max(-1, Math.min(1, settings.acceleration / MAX_ACCEL_RPS2))
     }
 
+    const knobPad = () => knob.offsetWidth / 2 + 2
+
     const paintStick = () => {
         const t = throwFromAccel()
-        knob.style.left = `${((t + 1) / 2) * 100}%`
+        const pad = knobPad()
+        knob.style.left = `calc(${pad}px + ${(t + 1) / 2} * (100% - ${pad * 2}px))`
         stick.classList.toggle('is-synced', settings.syncToNow)
         stick.setAttribute('aria-valuenow', t.toFixed(2))
     }
@@ -52,7 +55,7 @@ export function mountSettings(settings: ClockSettings) {
 
     const throwFromClientX = (clientX: number) => {
         const rect = stick.getBoundingClientRect()
-        const pad = knob.offsetWidth / 2
+        const pad = knobPad()
         const span = Math.max(1, rect.width - pad * 2)
         return ((clientX - rect.left - pad) / span) * 2 - 1
     }
