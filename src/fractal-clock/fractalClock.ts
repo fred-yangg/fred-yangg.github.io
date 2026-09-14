@@ -247,8 +247,13 @@ function fillInstances(
         if (!hand.enabled) continue
         const angle = hand.angle
         const thickLen = rootLength * hand.rootThickFraction
-        const tipX = cx + rootLength * Math.sin(angle)
-        const tipY = cy - rootLength * Math.cos(angle)
+        if (!emit(cx, cy, angle, thickLen, hand.rootWidth, inkRgb)) return count
+    }
+
+    for (const hand of hands) {
+        if (!hand.enabled) continue
+        const angle = hand.angle
+        const thickLen = rootLength * hand.rootThickFraction
         if (hand.rootThickFraction < 1) {
             const thinLen = rootLength - thickLen
             if (thinLen >= MIN_LENGTH_PX) {
@@ -257,7 +262,13 @@ function fillInstances(
                 if (!emit(tx, ty, angle, thinLen, CHILD_STROKE_WIDTH_PX, colorAt(thinLen))) return count
             }
         }
-        enqueue(tipX, tipY, angle, rootLength * SCALE, 1)
+        enqueue(
+            cx + rootLength * Math.sin(angle),
+            cy - rootLength * Math.cos(angle),
+            angle,
+            rootLength * SCALE,
+            1,
+        )
     }
 
     while (qh < qt) {
@@ -282,13 +293,6 @@ function fillInstances(
                 depth + 1,
             )
         }
-    }
-
-    for (const hand of hands) {
-        if (!hand.enabled) continue
-        const angle = hand.angle
-        const thickLen = rootLength * hand.rootThickFraction
-        if (!emit(cx, cy, angle, thickLen, hand.rootWidth, inkRgb)) return count
     }
 
     return count
