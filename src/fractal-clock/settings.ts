@@ -244,4 +244,14 @@ export function mountSettings(settings: ClockSettings) {
             setOpen(false, true)
         }
     })
+
+    const tick = () => {
+        if (!stick.classList.contains('is-dragging')) {
+            if (settings.syncToNow || Math.abs(settings.hoursPerSecond) < 1e-12) latched = false
+            paintStick()
+            paintSpeed()
+        }
+        requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
 }

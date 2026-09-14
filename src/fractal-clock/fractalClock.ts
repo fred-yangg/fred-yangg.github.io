@@ -129,6 +129,31 @@ function updateTimeAngles(hands: Hand[], hour: number) {
     minuteHand.angle = (minute / 60) * Math.PI * 2
 }
 
+function wrapPi(delta: number) {
+    const tau = Math.PI * 2
+    return delta - Math.round(delta / tau) * tau
+}
+
+function pointerAngle(dx: number, dy: number) {
+    return Math.atan2(dx, -dy)
+}
+
+function handHit(
+    dx: number,
+    dy: number,
+    angle: number,
+    length: number,
+    hitWidth: number,
+) {
+    const dirx = Math.sin(angle)
+    const diry = -Math.cos(angle)
+    const along = dx * dirx + dy * diry
+    if (along < -hitWidth || along > length + hitWidth) return null
+    const perp = Math.abs(dirx * dy - diry * dx)
+    if (perp > hitWidth) return null
+    return perp
+}
+
 function fillInstances(
     out: Float32Array,
     stack: Float32Array,
@@ -387,6 +412,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let lastTs = performance.now()
     let lastTheme: 'light' | 'dark' | undefined
     let observer: ResizeObserver | undefined
+    let dragging: 'hour' | 'minute' | undefined
+    let lastDragAngle = 0
 
     const themeColors = () => {
         const dark = effectiveClockTheme(settings.theme) === 'dark'
@@ -431,7 +458,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             layout()
         }
 
-        if (settings.syncToNow) {
+        if (dragging) {
+            settings.syncToNow = false
+            settings.hoursPerSecond = 0
+        } else if (settings.syncToNow) {
             settings.hour = hourFromDate()
             settings.hoursPerSecond = 0
         } else {
@@ -466,6 +496,74 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count)
     }
 
+    const pointerLocal = (event: PointerEvent) => {
+        const rect = glCanvas.getBoundingClientRect()
+        return {x: event.clientX - rect.left, y: event.clientY - rect.top}
+    }
+
+    const pickHand = (x: number, y: number) => {
+        const dx = x - cssWidth / 2
+        const dy = y - cssHeight / 2
+        updateTimeAngles(hands, settings.hour)
+        const hourHit = handHit(
+            dx,
+            dy,
+            hands[0].angle,
+            handLength,
+            Math.max(16, ROOT_HOUR_WIDTH_PX * 1.5),
+        )
+        const minuteHit = handHit(
+            dx,
+            dy,
+            hands[1].angle,
+            handLength,
+            Math.max(14, ROOT_MINUTE_WIDTH_PX * 1.5),
+        )
+        if (hourHit == null && minuteHit == null) return
+        if (hourHit == null) return 'minute' as const
+        if (minuteHit == null) return 'hour' as const
+        return hourHit <= minuteHit ? 'hour' as const : 'minute' as const
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+        if (event.button !== 0) return
+        const {x, y} = pointerLocal(event)
+        const which = pickHand(x, y)
+        if (!which) return
+        event.preventDefault()
+        dragging = which
+        lastDragAngle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
+        settings.syncToNow = false
+        settings.hoursPerSecond = 0
+        glCanvas.setPointerCapture(event.pointerId)
+        glCanvas.style.cursor = 'grabbing'
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+        const {x, y} = pointerLocal(event)
+        if (!dragging) {
+            glCanvas.style.cursor = pickHand(x, y) ? 'grab' : ''
+            return
+        }
+        const angle = pointerAngle(x - cssWidth / 2, y - cssHeight / 2)
+        const delta = wrapPi(angle - lastDragAngle)
+        lastDragAngle = angle
+        settings.hour += dragging === 'minute'
+            ? delta / (Math.PI * 2)
+            : delta / (Math.PI * 2) * 12
+    }
+
+    const onPointerUp = () => {
+        if (!dragging) return
+        dragging = undefined
+        glCanvas.style.cursor = ''
+    }
+
+    glCanvas.addEventListener('pointerdown', onPointerDown)
+    glCanvas.addEventListener('pointermove', onPointerMove)
+    glCanvas.addEventListener('pointerup', onPointerUp)
+    glCanvas.addEventListener('pointercancel', onPointerUp)
+
     observer = new ResizeObserver(layout)
     observer.observe(container)
     layout()
@@ -473,6 +571,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
 
     return () => {
         observer?.disconnect()
+        glCanvas.removeEventListener('pointerdown', onPointerDown)
+        glCanvas.removeEventListener('pointermove', onPointerMove)
+        glCanvas.removeEventListener('pointerup', onPointerUp)
+        glCanvas.removeEventListener('pointercancel', onPointerUp)
         cancelAnimationFrame(raf)
         gl.deleteProgram(program)
         gl.deleteShader(vs)
