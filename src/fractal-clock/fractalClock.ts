@@ -8,7 +8,6 @@ const MIN_LENGTH_PX = 0.5
 const ROOT_STROKE_WIDTH_PX = 4
 const CHILD_STROKE_WIDTH_PX = 1
 const VIEW_MARGIN_PX = 8
-const NUMERAL_RADIUS_OVER_HAND = 1.12
 const MAX_INSTANCES = 1 << 20
 const INSTANCE_FLOATS = 5
 
@@ -127,24 +126,45 @@ function fillInstances(
     return count
 }
 
-function drawNumbers(
+function drawFace(
     ctx: CanvasRenderingContext2D,
     cssWidth: number,
     cssHeight: number,
-    numberRadius: number,
-    fontSize: number,
+    handLength: number,
 ) {
-    const discRadius = numberRadius + fontSize * 0.55
+    const discRadius = handLength * 1.1
+    const fontSize = Math.max(10, discRadius * 0.13)
+    const tickOuter = discRadius - Math.max(2, discRadius * 0.04)
+    const hourTickInner = tickOuter - discRadius * 0.09
+    const minuteTickInner = tickOuter - discRadius * 0.04
+    const numberRadius = hourTickInner - fontSize * 0.75
+
     ctx.clearRect(0, 0, cssWidth, cssHeight)
     ctx.save()
     ctx.translate(cssWidth / 2, cssHeight / 2)
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = Math.max(1.5, fontSize * 0.08)
+
     ctx.fillStyle = '#fff'
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = Math.max(1.5, discRadius * 0.012)
     ctx.beginPath()
     ctx.arc(0, 0, discRadius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
+
+    ctx.lineCap = 'butt'
+    for (let i = 0; i < 60; i++) {
+        const angle = -Math.PI / 2 + i * Math.PI / 30
+        const hour = i % 5 === 0
+        const inner = hour ? hourTickInner : minuteTickInner
+        ctx.lineWidth = hour
+            ? Math.max(1.75, discRadius * 0.014)
+            : Math.max(1, discRadius * 0.006)
+        ctx.beginPath()
+        ctx.moveTo(inner * Math.cos(angle), inner * Math.sin(angle))
+        ctx.lineTo(tickOuter * Math.cos(angle), tickOuter * Math.sin(angle))
+        ctx.stroke()
+    }
+
     ctx.fillStyle = '#000'
     ctx.font = `${fontSize}px "Courier New"`
     ctx.textAlign = 'center'
@@ -244,7 +264,6 @@ export function startClock(container: HTMLElement) {
     let cssWidth = 0
     let cssHeight = 0
     let handLength = 0
-    let numberRadius = 0
     let raf = 0
     let observer: ResizeObserver | undefined
 
@@ -258,9 +277,7 @@ export function startClock(container: HTMLElement) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
         const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
         handLength = Math.max(1, maxReach * (1 - SCALE))
-        numberRadius = handLength * NUMERAL_RADIUS_OVER_HAND
-        const fontSize = Math.max(10, numberRadius * 0.18)
-        drawNumbers(numbersCtx, cssWidth, cssHeight, numberRadius, fontSize)
+        drawFace(numbersCtx, cssWidth, cssHeight, handLength)
     }
 
     const frame = () => {
