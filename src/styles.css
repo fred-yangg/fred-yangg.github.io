@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@custom-variant light (@media (prefers-color-scheme: light));
+
+@theme {
+  --font-sans: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
