@@ -67,7 +67,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const colors = readThemeColors()
         lastTheme = colors.ink
         drawFace(numbersCtx, cssWidth, cssHeight, handLength, colors.ink, colors.paper)
-        layoutDigitalTime(digitalTime, cssHeight, handLength)
+        layoutDigitalTime(digitalTime, handLength)
     }
 
     const drag = attachHandDrag(glCanvas, settings, hands, () => ({

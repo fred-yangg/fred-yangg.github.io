@@ -99,14 +99,9 @@ export function drawFace(
 
 export function layoutDigitalTime(
     el: HTMLElement | null,
-    cssHeight: number,
     handLength: number,
 ) {
     if (!el) return
     const discRadius = handLength * 1.1
-    const fontSize = Math.max(8, Math.round(discRadius * 0.12))
-    const gap = fontSize * 0.4
-    const belowDisc = cssHeight / 2 - discRadius
-    el.style.fontSize = `${fontSize}px`
-    el.style.bottom = `${Math.max(8, Math.round(belowDisc - gap - fontSize))}px`
+    el.style.fontSize = `${Math.max(8, Math.round(discRadius * 0.12))}px`
 }

@@ -84,6 +84,7 @@ html:not(.clock-ready) #clock-settings {
 .clock-digital {
     position: absolute;
     right: 0;
+    bottom: 8px;
     left: 0;
     z-index: 1;
     display: flex;
