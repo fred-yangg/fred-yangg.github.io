@@ -9,7 +9,6 @@ import {
     THEME_STORAGE_KEY,
 } from './constants.ts'
 import {parseHexColor} from './color.ts'
-import {effectiveClockTheme} from './theme.ts'
 import {hourFromDate} from './time.ts'
 import type {ClockSettings, ClockTheme, GradientCurve, StoredGradient} from './types.ts'
 
@@ -49,11 +48,7 @@ export function loadFractalGradient(): StoredGradient {
                 curve?: string
                 hourBias?: number
                 minuteBias?: number
-                forTheme?: 'light' | 'dark'
             }
-            const forTheme = parsed.forTheme === 'light' || parsed.forTheme === 'dark'
-                ? parsed.forTheme
-                : effectiveClockTheme(loadClockTheme())
             const start = parseHexColor(parsed.start ?? '') ? parsed.start! : DEFAULT_FRACTAL_COLOR_START
             const end = parseHexColor(parsed.end ?? '') ? parsed.end! : DEFAULT_FRACTAL_COLOR_END
             const curve: GradientCurve =
@@ -63,7 +58,6 @@ export function loadFractalGradient(): StoredGradient {
             return {
                 start,
                 end,
-                forTheme,
                 curve,
                 hourBias: clampBias(Number(parsed.hourBias), DEFAULT_HOUR_BIAS),
                 minuteBias: clampBias(Number(parsed.minuteBias), DEFAULT_MINUTE_BIAS),
@@ -75,7 +69,6 @@ export function loadFractalGradient(): StoredGradient {
     return {
         start: DEFAULT_FRACTAL_COLOR_START,
         end: DEFAULT_FRACTAL_COLOR_END,
-        forTheme: 'dark',
         curve: DEFAULT_GRADIENT_CURVE,
         hourBias: DEFAULT_HOUR_BIAS,
         minuteBias: DEFAULT_MINUTE_BIAS,
@@ -90,7 +83,6 @@ export function saveFractalGradient(settings: ClockSettings) {
         JSON.stringify({
             start: settings.fractalColorStart,
             end: settings.fractalColorEnd,
-            forTheme: settings.gradientForTheme,
             curve: settings.gradientCurve,
             hourBias: settings.hourBias,
             minuteBias: settings.minuteBias,
@@ -107,7 +99,6 @@ export function createClockSettings(): ClockSettings {
         theme: loadClockTheme(),
         fractalColorStart: gradient.start,
         fractalColorEnd: gradient.end,
-        gradientForTheme: gradient.forTheme,
         gradientCurve: gradient.curve,
         hourBias: gradient.hourBias,
         minuteBias: gradient.minuteBias,
