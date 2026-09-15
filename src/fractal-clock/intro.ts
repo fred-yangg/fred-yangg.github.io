@@ -32,7 +32,7 @@ function easeInCubic(t: number) {
 function introStartHour(now: number) {
     let hour = wrapHour(Math.floor(now) - 1)
     if (hour === 0 || hour === 6) hour = wrapHour(hour - 1)
-    return hour
+    return hour + 10 / 60
 }
 
 function sweepEnd(startHour: number, nowHour: number) {

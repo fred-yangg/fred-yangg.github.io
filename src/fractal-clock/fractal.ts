@@ -34,6 +34,12 @@ function mix(a: number, b: number, t: number) {
     return a + (b - a) * t
 }
 
+function mixAngle(from: number, to: number, t: number) {
+    const tau = Math.PI * 2
+    const delta = to - from
+    return from + (delta - Math.round(delta / tau) * tau) * t
+}
+
 export function fillInstances(
     out: Float32Array,
     queue: Float32Array,
@@ -100,7 +106,7 @@ export function fillInstances(
     ) => emit(
         mix(pOx, cOx, t),
         mix(pOy, cOy, t),
-        mix(pAngle, cAngle, t),
+        mixAngle(pAngle, cAngle, t),
         mix(0, cLen, t),
         mix(pWidth, CHILD_STROKE_WIDTH_PX, t),
         rgb,
