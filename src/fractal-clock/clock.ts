@@ -45,6 +45,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     let lastTs = performance.now()
     let lastTheme: string | undefined
     let observer: ResizeObserver | undefined
+    let revealed = false
 
     const layout = () => {
         cssWidth = container.clientWidth
@@ -57,6 +58,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const maxReach = Math.min(cssWidth, cssHeight) / 2 - VIEW_MARGIN_PX
         handLength = Math.max(1, maxReach * (1 - SCALE))
         const colors = readThemeColors()
+        lastTheme = colors.ink
         drawFace(numbersCtx, cssWidth, cssHeight, handLength, colors.ink, colors.paper)
         layoutDigitalTime(digitalTime, cssHeight, handLength)
     }
@@ -73,12 +75,11 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         lastTs = ts
         if (cssWidth < 1 || cssHeight < 1) return
 
-        applyClockTheme(settings.theme)
-        const colors = readThemeColors()
-        if (colors.ink !== lastTheme) {
-            lastTheme = colors.ink
-            layout()
+        if (document.documentElement.dataset.clockTheme !== settings.theme) {
+            applyClockTheme(settings.theme)
         }
+        const colors = readThemeColors()
+        if (colors.ink !== lastTheme) layout()
 
         if (drag.isDragging()) {
             settings.syncToNow = false
@@ -125,6 +126,10 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             settings.minuteBias,
         )
         renderer.draw(instances, count, cssWidth, cssHeight)
+        if (!revealed) {
+            revealed = true
+            document.documentElement.classList.add('clock-ready')
+        }
     }
 
     observer = new ResizeObserver(layout)

@@ -1,5 +1,3 @@
-import '../styles.css'
-import './clock.css'
 import {startClock} from './clock.ts'
 import {mustGetById} from './dom.ts'
 import {mountSettings} from './settings.ts'
