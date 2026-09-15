@@ -11,8 +11,6 @@ export type ClockSettings = {
     theme: ClockTheme
     fractalColorStart: string
     fractalColorEnd: string
-    /** Theme the stored gradient hex values were chosen in. */
-    gradientForTheme: ResolvedTheme
     gradientCurve: GradientCurve
     hourBias: number
     minuteBias: number
@@ -30,7 +28,6 @@ export type Hand = {
 export type StoredGradient = {
     start: string
     end: string
-    forTheme: ResolvedTheme
     curve: GradientCurve
     hourBias: number
     minuteBias: number

@@ -1,9 +1,8 @@
 import {clampBias, DEFAULT_HOUR_BIAS, DEFAULT_MINUTE_BIAS} from './constants.ts'
-import {gradientDisplayHex} from './color.ts'
 import {mustGetButton, mustGetById, mustGetInput} from './dom.ts'
 import {mountSpeedStick} from './speedStick.ts'
 import {saveClockTheme, saveFractalGradient} from './storage.ts'
-import {applyClockTheme, effectiveClockTheme} from './theme.ts'
+import {applyClockTheme} from './theme.ts'
 import type {ClockSettings, ClockTheme, GradientCurve} from './types.ts'
 
 function layoutSegmentedPills(root: HTMLElement) {
@@ -62,23 +61,13 @@ export function mountSettings(settings: ClockSettings) {
     const biasSliders = mustGetById('setting-bias-sliders')
 
     const paintGradientPickers = () => {
-        const now = effectiveClockTheme(settings.theme)
-        gradStart.value = gradientDisplayHex(
-            settings.fractalColorStart,
-            settings.gradientForTheme,
-            now,
-        )
-        gradEnd.value = gradientDisplayHex(
-            settings.fractalColorEnd,
-            settings.gradientForTheme,
-            now,
-        )
+        gradStart.value = settings.fractalColorStart
+        gradEnd.value = settings.fractalColorEnd
     }
 
     const paintTheme = () => {
         setActiveChoice(themeButtons, 'theme', settings.theme)
         layoutSegmentedPills(menu)
-        paintGradientPickers()
     }
 
     const paintBias = () => {
@@ -96,6 +85,7 @@ export function mountSettings(settings: ClockSettings) {
 
     paintTheme()
     paintCurve()
+    paintGradientPickers()
 
     for (const el of themeButtons) {
         el.addEventListener('click', () => {
@@ -113,13 +103,11 @@ export function mountSettings(settings: ClockSettings) {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (settings.theme !== 'system') return
         applyClockTheme('system')
-        paintGradientPickers()
     })
 
     const commitPicker = (which: 'start' | 'end', value: string) => {
         if (which === 'start') settings.fractalColorStart = value
         else settings.fractalColorEnd = value
-        settings.gradientForTheme = effectiveClockTheme(settings.theme)
         saveFractalGradient(settings)
     }
     gradStart.addEventListener('input', () => commitPicker('start', gradStart.value))

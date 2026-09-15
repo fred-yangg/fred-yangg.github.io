@@ -1,4 +1,4 @@
-import {resolveGradientRgb} from './color.ts'
+import {parseHexColorOr} from './color.ts'
 import {
     DEFAULT_FRACTAL_COLOR_END,
     DEFAULT_FRACTAL_COLOR_START,
@@ -14,7 +14,7 @@ import {drawFace, layoutDigitalTime} from './face.ts'
 import {createHands, fillInstances} from './fractal.ts'
 import {createClockGl} from './gl.ts'
 import {attachHandDrag} from './interact.ts'
-import {applyClockTheme, effectiveClockTheme, readThemeColors} from './theme.ts'
+import {applyClockTheme, readThemeColors} from './theme.ts'
 import {formatDigitalTime, hourFromDate, updateTimeAngles} from './time.ts'
 import type {ClockSettings} from './types.ts'
 
@@ -97,19 +97,8 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             const label = formatDigitalTime(settings.hour)
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
-        const nowTheme = effectiveClockTheme(settings.theme)
-        const startRgb = resolveGradientRgb(
-            settings.fractalColorStart,
-            settings.gradientForTheme,
-            nowTheme,
-            DEFAULT_FRACTAL_COLOR_START,
-        )
-        const endRgb = resolveGradientRgb(
-            settings.fractalColorEnd,
-            settings.gradientForTheme,
-            nowTheme,
-            DEFAULT_FRACTAL_COLOR_END,
-        )
+        const startRgb = parseHexColorOr(settings.fractalColorStart, DEFAULT_FRACTAL_COLOR_START)
+        const endRgb = parseHexColorOr(settings.fractalColorEnd, DEFAULT_FRACTAL_COLOR_END)
         const count = fillInstances(
             instances,
             queue,
