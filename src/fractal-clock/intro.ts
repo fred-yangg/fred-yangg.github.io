@@ -1,7 +1,6 @@
 import {
     INTRO_HOLD_SEC,
     INTRO_SPAWN_SEC,
-    INTRO_START_HOUR,
     INTRO_SWEEP_SEC,
 } from './constants.ts'
 import {hourFromDate, wrapHour} from './time.ts'
@@ -14,6 +13,7 @@ export type IntroSpawn = {
 export type ClockIntro = {
     done: boolean
     hour: number
+    startHour: number
     spawn: IntroSpawn | undefined
     skip: () => void
     update: (dt: number, maxDepth: number) => void
@@ -24,25 +24,41 @@ function easeInOutCubic(t: number) {
     return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2
 }
 
-function easeOutCubic(t: number) {
+function easeInCubic(t: number) {
     const x = Math.min(1, Math.max(0, t))
-    return 1 - (1 - x) ** 3
+    return x * x * x
+}
+
+function introStartHour(now: number) {
+    let hour = wrapHour(Math.floor(now) - 1)
+    if (hour === 0 || hour === 6) hour = wrapHour(hour - 1)
+    return hour
 }
 
 function sweepEnd(startHour: number, nowHour: number) {
-    const forward = wrapHour(nowHour - startHour)
-    return startHour + 12 + forward
+    return startHour + wrapHour(nowHour - startHour)
 }
 
 export function createIntro(): ClockIntro {
+    const startHour = introStartHour(hourFromDate())
     let phase: 'hold' | 'spawn' | 'sweep' | 'done' = 'hold'
     let elapsed = 0
     let depth = 0
     let spawnT = 0
-    let hour = INTRO_START_HOUR
-    let fromHour = INTRO_START_HOUR
-    let toHour = INTRO_START_HOUR
+    let hour = startHour
+    let fromHour = startHour
+    let toHour = startHour
     let done = false
+
+    const beginSweep = () => {
+        phase = 'sweep'
+        elapsed = 0
+        fromHour = startHour
+        toHour = sweepEnd(fromHour, hourFromDate())
+        hour = fromHour
+        depth = 0
+        spawnT = 1
+    }
 
     const finish = (snapToNow: boolean) => {
         phase = 'done'
@@ -57,9 +73,12 @@ export function createIntro(): ClockIntro {
         get hour() {
             return hour
         },
+        get startHour() {
+            return startHour
+        },
         get spawn(): IntroSpawn | undefined {
             if (done || phase === 'sweep') return undefined
-            return {depth, t: easeOutCubic(spawnT)}
+            return {depth, t: spawnT}
         },
         skip() {
             finish(false)
@@ -78,20 +97,16 @@ export function createIntro(): ClockIntro {
             }
 
             if (phase === 'spawn') {
-                spawnT += dt / INTRO_SPAWN_SEC
-                while (spawnT >= 1) {
-                    spawnT -= 1
-                    if (depth >= levels) {
-                        phase = 'sweep'
-                        elapsed = 0
-                        fromHour = INTRO_START_HOUR
-                        toHour = sweepEnd(fromHour, hourFromDate())
-                        hour = fromHour
-                        spawnT = 1
-                        break
-                    }
-                    depth += 1
+                elapsed += dt
+                const total = INTRO_SPAWN_SEC * levels
+                const eased = easeInCubic(elapsed / total)
+                if (eased >= 1) {
+                    beginSweep()
+                    return
                 }
+                const pos = eased * levels
+                depth = Math.min(levels, Math.floor(pos) + 1)
+                spawnT = pos - Math.floor(pos)
                 return
             }
 

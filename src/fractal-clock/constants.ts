@@ -22,7 +22,6 @@ export const MAX_INSTANCES = 1 << 20
 export const INSTANCE_FLOATS = 8
 export const QUEUE_FLOATS = 7
 
-export const INTRO_START_HOUR = 1
 export const INTRO_HOLD_SEC = 0.35
 export const INTRO_SPAWN_SEC = 0.22
 export const INTRO_SWEEP_SEC = 3.2

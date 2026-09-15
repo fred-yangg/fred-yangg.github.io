@@ -3,7 +3,6 @@ import {
     DEFAULT_FRACTAL_COLOR_END,
     DEFAULT_FRACTAL_COLOR_START,
     INSTANCE_FLOATS,
-    INTRO_START_HOUR,
     MAX_INSTANCES,
     MAX_MINUTE_RPS,
     QUEUE_FLOATS,
@@ -43,7 +42,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
 
     settings.syncToNow = false
     settings.hoursPerSecond = 0
-    settings.hour = INTRO_START_HOUR
+    settings.hour = intro.startHour
 
     let cssWidth = 0
     let cssHeight = 0
@@ -123,7 +122,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         }
         updateTimeAngles(hands, settings.hour)
         if (digitalTime) {
-            const label = formatDigitalTime(intro.done ? settings.hour : INTRO_START_HOUR)
+            const label = formatDigitalTime(intro.done ? settings.hour : intro.startHour)
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
         const nowTheme = effectiveClockTheme(settings.theme)
