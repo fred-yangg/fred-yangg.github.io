@@ -120,7 +120,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
                 settings.hour += settings.hoursPerSecond * dt
             }
         }
-        updateTimeAngles(hands, settings.hour)
+        updateTimeAngles(hands, settings.hour, settings.discreteHourHand)
         if (digitalTime) {
             const label = formatDigitalTime(
                 intro.done || !intro.spawn ? settings.hour : intro.startHour,

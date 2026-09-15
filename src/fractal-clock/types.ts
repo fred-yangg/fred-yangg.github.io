@@ -16,6 +16,7 @@ export type ClockSettings = {
     gradientCurve: GradientCurve
     hourBias: number
     minuteBias: number
+    discreteHourHand: boolean
 }
 
 export type Hand = {

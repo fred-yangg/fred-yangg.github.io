@@ -5,6 +5,7 @@ import {
     DEFAULT_GRADIENT_CURVE,
     DEFAULT_HOUR_BIAS,
     DEFAULT_MINUTE_BIAS,
+    DISCRETE_HOUR_STORAGE_KEY,
     GRADIENT_STORAGE_KEY,
     THEME_STORAGE_KEY,
 } from './constants.ts'
@@ -37,6 +38,14 @@ export function loadClockTheme(): ClockTheme {
 
 export function saveClockTheme(theme: ClockTheme) {
     writeStorage(THEME_STORAGE_KEY, theme)
+}
+
+export function loadDiscreteHourHand() {
+    return readStorage(DISCRETE_HOUR_STORAGE_KEY) === '1'
+}
+
+export function saveDiscreteHourHand(on: boolean) {
+    writeStorage(DISCRETE_HOUR_STORAGE_KEY, on ? '1' : '0')
 }
 
 export function loadFractalGradient(): StoredGradient {
@@ -111,5 +120,6 @@ export function createClockSettings(): ClockSettings {
         gradientCurve: gradient.curve,
         hourBias: gradient.hourBias,
         minuteBias: gradient.minuteBias,
+        discreteHourHand: loadDiscreteHourHand(),
     }
 }

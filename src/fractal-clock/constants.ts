@@ -2,6 +2,7 @@ import type {GradientCurve} from './types.ts'
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
+export const DISCRETE_HOUR_STORAGE_KEY = 'fractal-clock-discrete-hour'
 export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
 export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'biased'
