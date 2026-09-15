@@ -24,6 +24,7 @@ export const QUEUE_FLOATS = 7
 
 export const INTRO_HOLD_SEC = 0.35
 export const INTRO_SPAWN_SEC = 0.22
+export const INTRO_SETTLE_SEC = 0.2
 export const INTRO_SWEEP_SEC = 3.2
 
 export function clampBias(value: number, fallback: number) {

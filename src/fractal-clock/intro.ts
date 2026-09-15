@@ -1,5 +1,6 @@
 import {
     INTRO_HOLD_SEC,
+    INTRO_SETTLE_SEC,
     INTRO_SPAWN_SEC,
     INTRO_SWEEP_SEC,
 } from './constants.ts'
@@ -22,11 +23,6 @@ export type ClockIntro = {
 function easeInOutCubic(t: number) {
     const x = Math.min(1, Math.max(0, t))
     return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2
-}
-
-function easeInCubic(t: number) {
-    const x = Math.min(1, Math.max(0, t))
-    return x * x * x
 }
 
 function introStartHour(now: number) {
@@ -99,11 +95,13 @@ export function createIntro(): ClockIntro {
             if (phase === 'spawn') {
                 elapsed += dt
                 const total = INTRO_SPAWN_SEC * levels
-                const eased = easeInCubic(elapsed / total)
-                if (eased >= 1) {
-                    beginSweep()
+                if (elapsed >= total) {
+                    depth = levels
+                    spawnT = 1
+                    if (elapsed >= total + INTRO_SETTLE_SEC) beginSweep()
                     return
                 }
+                const eased = easeInOutCubic(elapsed / total)
                 const pos = eased * levels
                 depth = Math.min(levels, Math.floor(pos) + 1)
                 spawnT = pos - Math.floor(pos)
@@ -112,6 +110,7 @@ export function createIntro(): ClockIntro {
 
             if (phase === 'sweep') {
                 elapsed += dt
+                toHour = sweepEnd(fromHour, hourFromDate())
                 const t = easeInOutCubic(elapsed / INTRO_SWEEP_SEC)
                 hour = fromHour + (toHour - fromHour) * t
                 if (elapsed >= INTRO_SWEEP_SEC) finish(true)

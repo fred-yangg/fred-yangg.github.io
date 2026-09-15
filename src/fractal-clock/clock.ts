@@ -122,7 +122,9 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         }
         updateTimeAngles(hands, settings.hour)
         if (digitalTime) {
-            const label = formatDigitalTime(intro.done ? settings.hour : intro.startHour)
+            const label = formatDigitalTime(
+                intro.done || !intro.spawn ? settings.hour : intro.startHour,
+            )
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
         const nowTheme = effectiveClockTheme(settings.theme)
