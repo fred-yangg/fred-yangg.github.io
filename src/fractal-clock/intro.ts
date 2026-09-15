@@ -25,10 +25,19 @@ function easeInOutCubic(t: number) {
     return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2
 }
 
+function mirroredHandsHour(clockHour: number) {
+    return 12 * (clockHour + 1) / 13
+}
+
+function hourDistance(a: number, b: number) {
+    const d = wrapHour(a - b)
+    return Math.min(d, 12 - d)
+}
+
 function introStartHour(now: number) {
-    let hour = wrapHour(Math.floor(now) - 1)
-    if (hour === 0 || hour === 6) hour = wrapHour(hour - 1)
-    return hour + 10 / 60
+    const aroundEleven = mirroredHandsHour(11)
+    const aroundTen = mirroredHandsHour(10)
+    return hourDistance(now, aroundEleven) < 1 ? aroundTen : aroundEleven
 }
 
 function sweepEnd(startHour: number, nowHour: number) {
