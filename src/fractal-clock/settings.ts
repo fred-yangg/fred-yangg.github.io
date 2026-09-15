@@ -1,10 +1,10 @@
-import {clampBias, DEFAULT_HOUR_BIAS, DEFAULT_MINUTE_BIAS} from './constants.ts'
+import {clampBias, DEFAULT_HOUR_BIAS, DEFAULT_MINUTE_BIAS, DISCRETE_HOUR_STEPS} from './constants.ts'
 import {gradientDisplayHex} from './color.ts'
 import {mustGetButton, mustGetById, mustGetInput} from './dom.ts'
 import {mountSpeedStick} from './speedStick.ts'
-import {saveClockTheme, saveFractalGradient} from './storage.ts'
+import {saveClockTheme, saveDiscreteHourHand, saveDiscreteHourStep, saveFractalGradient} from './storage.ts'
 import {applyClockTheme, effectiveClockTheme} from './theme.ts'
-import type {ClockSettings, ClockTheme, GradientCurve} from './types.ts'
+import type {ClockSettings, ClockTheme, DiscreteHourStep, GradientCurve} from './types.ts'
 
 function layoutSegmentedPills(root: HTMLElement) {
     for (const group of root.querySelectorAll('.clock-theme')) {
@@ -17,7 +17,7 @@ function layoutSegmentedPills(root: HTMLElement) {
     }
 }
 
-function setActiveChoice(buttons: Element[], attr: 'theme' | 'curve', value: string) {
+function setActiveChoice(buttons: Element[], attr: 'theme' | 'curve' | 'discrete' | 'step', value: string) {
     for (const el of buttons) {
         if (!(el instanceof HTMLElement)) continue
         el.classList.toggle('is-active', el.dataset[attr] === value)
@@ -53,6 +53,9 @@ export function mountSettings(settings: ClockSettings) {
 
     const themeButtons = [...menu.querySelectorAll('[data-theme]')]
     const curveButtons = [...menu.querySelectorAll('[data-curve]')]
+    const discreteButtons = [...menu.querySelectorAll('[data-discrete]')]
+    const stepButtons = [...menu.querySelectorAll('[data-step]')]
+    const discreteStep = mustGetById('setting-discrete-step')
     const gradStart = mustGetInput('setting-grad-start')
     const gradEnd = mustGetInput('setting-grad-end')
     const hourBias = mustGetInput('setting-hour-bias')
@@ -94,8 +97,17 @@ export function mountSettings(settings: ClockSettings) {
         paintBias()
     }
 
+    const paintDiscrete = () => {
+        setActiveChoice(discreteButtons, 'discrete', settings.discreteHourHand ? 'on' : 'off')
+        setActiveChoice(stepButtons, 'step', String(settings.discreteHourStep))
+        discreteStep.classList.toggle('is-open', settings.discreteHourHand)
+        layoutSegmentedPills(menu)
+        requestAnimationFrame(() => layoutSegmentedPills(menu))
+    }
+
     paintTheme()
     paintCurve()
+    paintDiscrete()
 
     for (const el of themeButtons) {
         el.addEventListener('click', () => {
@@ -140,6 +152,28 @@ export function mountSettings(settings: ClockSettings) {
     }
     bindBias(hourBias, hourBiasLabel, 'hourBias', DEFAULT_HOUR_BIAS)
     bindBias(minuteBias, minuteBiasLabel, 'minuteBias', DEFAULT_MINUTE_BIAS)
+
+    for (const el of discreteButtons) {
+        el.addEventListener('click', () => {
+            if (!(el instanceof HTMLElement)) return
+            const next = el.dataset.discrete
+            if (next !== 'on' && next !== 'off') return
+            settings.discreteHourHand = next === 'on'
+            saveDiscreteHourHand(settings.discreteHourHand)
+            paintDiscrete()
+        })
+    }
+
+    for (const el of stepButtons) {
+        el.addEventListener('click', () => {
+            if (!(el instanceof HTMLElement)) return
+            const next = Number(el.dataset.step)
+            if (!(DISCRETE_HOUR_STEPS as readonly number[]).includes(next)) return
+            settings.discreteHourStep = next as DiscreteHourStep
+            saveDiscreteHourStep(settings.discreteHourStep)
+            paintDiscrete()
+        })
+    }
 
     for (const el of curveButtons) {
         el.addEventListener('click', () => {

@@ -4,14 +4,18 @@ import {
     DEFAULT_FRACTAL_COLOR_START,
     DEFAULT_GRADIENT_CURVE,
     DEFAULT_HOUR_BIAS,
+    DEFAULT_DISCRETE_HOUR_STEP,
     DEFAULT_MINUTE_BIAS,
+    DISCRETE_HOUR_STEP_STORAGE_KEY,
+    DISCRETE_HOUR_STORAGE_KEY,
+    DISCRETE_HOUR_STEPS,
     GRADIENT_STORAGE_KEY,
     THEME_STORAGE_KEY,
 } from './constants.ts'
 import {parseHexColor} from './color.ts'
 import {effectiveClockTheme} from './theme.ts'
 import {hourFromDate} from './time.ts'
-import type {ClockSettings, ClockTheme, GradientCurve, StoredGradient} from './types.ts'
+import type {ClockSettings, ClockTheme, DiscreteHourStep, GradientCurve, StoredGradient} from './types.ts'
 
 function readStorage(key: string) {
     try {
@@ -37,6 +41,25 @@ export function loadClockTheme(): ClockTheme {
 
 export function saveClockTheme(theme: ClockTheme) {
     writeStorage(THEME_STORAGE_KEY, theme)
+}
+
+export function loadDiscreteHourHand() {
+    return readStorage(DISCRETE_HOUR_STORAGE_KEY) === '1'
+}
+
+export function saveDiscreteHourHand(on: boolean) {
+    writeStorage(DISCRETE_HOUR_STORAGE_KEY, on ? '1' : '0')
+}
+
+export function loadDiscreteHourStep(): DiscreteHourStep {
+    const n = Number(readStorage(DISCRETE_HOUR_STEP_STORAGE_KEY))
+    return (DISCRETE_HOUR_STEPS as readonly number[]).includes(n)
+        ? n as DiscreteHourStep
+        : DEFAULT_DISCRETE_HOUR_STEP
+}
+
+export function saveDiscreteHourStep(step: DiscreteHourStep) {
+    writeStorage(DISCRETE_HOUR_STEP_STORAGE_KEY, String(step))
 }
 
 export function loadFractalGradient(): StoredGradient {
@@ -111,5 +134,7 @@ export function createClockSettings(): ClockSettings {
         gradientCurve: gradient.curve,
         hourBias: gradient.hourBias,
         minuteBias: gradient.minuteBias,
+        discreteHourHand: loadDiscreteHourHand(),
+        discreteHourStep: loadDiscreteHourStep(),
     }
 }

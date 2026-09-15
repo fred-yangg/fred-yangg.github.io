@@ -1,7 +1,11 @@
-import type {GradientCurve} from './types.ts'
+import type {DiscreteHourStep, GradientCurve} from './types.ts'
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
+export const DISCRETE_HOUR_STORAGE_KEY = 'fractal-clock-discrete-hour'
+export const DISCRETE_HOUR_STEP_STORAGE_KEY = 'fractal-clock-discrete-hour-step'
+export const DEFAULT_DISCRETE_HOUR_STEP: DiscreteHourStep = 60
+export const DISCRETE_HOUR_STEPS = [15, 20, 30, 60] as const
 export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
 export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'biased'
@@ -20,7 +24,12 @@ export const CHILD_STROKE_WIDTH_PX = 1
 export const VIEW_MARGIN_PX = 8
 export const MAX_INSTANCES = 1 << 20
 export const INSTANCE_FLOATS = 8
-export const QUEUE_FLOATS = 6
+export const QUEUE_FLOATS = 7
+
+export const INTRO_HOLD_SEC = 0.35
+export const INTRO_SPAWN_SEC = 0.22
+export const INTRO_SETTLE_SEC = 0.2
+export const INTRO_SWEEP_SEC = 3.2
 
 export function clampBias(value: number, fallback: number) {
     if (!Number.isFinite(value)) return fallback
