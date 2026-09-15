@@ -20,7 +20,12 @@ export const CHILD_STROKE_WIDTH_PX = 1
 export const VIEW_MARGIN_PX = 8
 export const MAX_INSTANCES = 1 << 20
 export const INSTANCE_FLOATS = 8
-export const QUEUE_FLOATS = 6
+export const QUEUE_FLOATS = 7
+
+export const INTRO_START_HOUR = 1
+export const INTRO_HOLD_SEC = 0.35
+export const INTRO_SPAWN_SEC = 0.22
+export const INTRO_SWEEP_SEC = 3.2
 
 export function clampBias(value: number, fallback: number) {
     if (!Number.isFinite(value)) return fallback
