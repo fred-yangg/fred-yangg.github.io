@@ -21,11 +21,19 @@ export function formatDigitalTime(hour: number) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-export function updateTimeAngles(hands: Hand[], hour: number, discreteHourHand = false) {
+export function updateTimeAngles(
+    hands: Hand[],
+    hour: number,
+    discreteHourHand = false,
+    discreteHourStep = 60,
+) {
     const wrapped = wrapHour(hour)
     const minute = (wrapped * 60) % 60
     const [hourHand, minuteHand] = hands
-    const hourValue = discreteHourHand ? Math.floor(wrapped) : wrapped
+    const stepHours = Math.max(1, discreteHourStep) / 60
+    const hourValue = discreteHourHand
+        ? Math.floor(wrapped / stepHours + 1e-9) * stepHours
+        : wrapped
     hourHand.angle = (hourValue / 12) * Math.PI * 2
     minuteHand.angle = (minute / 60) * Math.PI * 2
 }

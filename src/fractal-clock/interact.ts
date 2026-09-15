@@ -51,7 +51,7 @@ export function attachHandDrag(
         const {width, height, handLength} = size()
         const dx = x - width / 2
         const dy = y - height / 2
-        updateTimeAngles(hands, settings.hour, settings.discreteHourHand)
+        updateTimeAngles(hands, settings.hour, settings.discreteHourHand, settings.discreteHourStep)
         const hourHit = handHit(
             dx,
             dy,

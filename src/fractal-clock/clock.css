@@ -331,6 +331,11 @@ html:not(.clock-ready) #clock-settings {
     overflow: hidden;
 }
 
+.clock-bias-inner .clock-theme {
+    flex: 1;
+    margin-top: 0;
+}
+
 .clock-bias-row {
     display: flex;
     flex: 1;

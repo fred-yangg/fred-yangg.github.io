@@ -1,6 +1,7 @@
 export type ClockTheme = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
 export type GradientCurve = 'linear' | 'proportional' | 'biased'
+export type DiscreteHourStep = 15 | 20 | 30 | 60
 
 export type ClockSettings = {
     syncToNow: boolean
@@ -17,6 +18,7 @@ export type ClockSettings = {
     hourBias: number
     minuteBias: number
     discreteHourHand: boolean
+    discreteHourStep: DiscreteHourStep
 }
 
 export type Hand = {

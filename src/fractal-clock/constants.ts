@@ -1,8 +1,11 @@
-import type {GradientCurve} from './types.ts'
+import type {DiscreteHourStep, GradientCurve} from './types.ts'
 
 export const THEME_STORAGE_KEY = 'fractal-clock-theme'
 export const GRADIENT_STORAGE_KEY = 'fractal-clock-gradient'
 export const DISCRETE_HOUR_STORAGE_KEY = 'fractal-clock-discrete-hour'
+export const DISCRETE_HOUR_STEP_STORAGE_KEY = 'fractal-clock-discrete-hour-step'
+export const DEFAULT_DISCRETE_HOUR_STEP: DiscreteHourStep = 60
+export const DISCRETE_HOUR_STEPS = [15, 20, 30, 60] as const
 export const DEFAULT_FRACTAL_COLOR_START = '#2fd0e9'
 export const DEFAULT_FRACTAL_COLOR_END = '#9a39a7'
 export const DEFAULT_GRADIENT_CURVE: GradientCurve = 'biased'
