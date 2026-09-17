@@ -33,10 +33,10 @@ function easeInCubic(t: number) {
 function spawnAt(elapsed: number, total: number, levels: number) {
     if (elapsed <= 0) return {depth: 1, t: 0, done: false}
     if (elapsed >= total) return {depth: levels, t: 1, done: true}
-    const k = levels * (elapsed / total)
+    const k = levels * (elapsed / total) ** (1 / 3)
     const depth = Math.min(levels, Math.floor(k) + 1)
-    const t0 = total * (depth - 1) / levels
-    const t1 = total * depth / levels
+    const t0 = total * easeInCubic((depth - 1) / levels)
+    const t1 = total * easeInCubic(depth / levels)
     const u = t1 > t0 ? Math.min(1, Math.max(0, (elapsed - t0) / (t1 - t0))) : 1
     return {depth, t: easeInCubic(u), done: false}
 }
