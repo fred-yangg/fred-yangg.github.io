@@ -30,14 +30,18 @@ function easeInCubic(t: number) {
     return x * x * x
 }
 
+function spawnSpeed(depth: number, levels: number) {
+    return easeInCubic(depth / levels)
+}
+
 function spawnAt(elapsed: number, total: number, levels: number) {
     if (elapsed <= 0) return {depth: 1, t: 0, done: false}
     if (elapsed >= total) return {depth: levels, t: 1, done: true}
     let weightSum = 0
-    for (let i = 1; i <= levels; i++) weightSum += easeInCubic(i / levels)
+    for (let i = 1; i <= levels; i++) weightSum += 1 / spawnSpeed(i, levels)
     let acc = 0
     for (let depth = 1; depth <= levels; depth++) {
-        const duration = total * easeInCubic(depth / levels) / weightSum
+        const duration = total / (spawnSpeed(depth, levels) * weightSum)
         if (elapsed < acc + duration || depth === levels) {
             const u = duration > 0 ? Math.min(1, Math.max(0, (elapsed - acc) / duration)) : 1
             return {depth, t: easeInCubic(u), done: false}
