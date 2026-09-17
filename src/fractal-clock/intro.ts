@@ -25,6 +25,22 @@ function easeInOutCubic(t: number) {
     return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2
 }
 
+function easeInCubic(t: number) {
+    const x = Math.min(1, Math.max(0, t))
+    return x * x * x
+}
+
+function spawnAt(elapsed: number, total: number, levels: number) {
+    if (elapsed <= 0) return {depth: 1, t: 0, done: false}
+    if (elapsed >= total) return {depth: levels, t: 1, done: true}
+    const k = levels * easeInCubic(elapsed / total)
+    const depth = Math.min(levels, Math.floor(k) + 1)
+    const t0 = total * ((depth - 1) / levels) ** (1 / 3)
+    const t1 = total * (depth / levels) ** (1 / 3)
+    const u = t1 > t0 ? Math.min(1, Math.max(0, (elapsed - t0) / (t1 - t0))) : 1
+    return {depth, t: easeInCubic(u), done: false}
+}
+
 function mirroredHandsHour(clockHour: number) {
     return 12 * (clockHour + 1) / 13
 }
@@ -104,16 +120,10 @@ export function createIntro(): ClockIntro {
             if (phase === 'spawn') {
                 elapsed += dt
                 const total = INTRO_SPAWN_SEC * levels
-                if (elapsed >= total) {
-                    depth = levels
-                    spawnT = 1
-                    if (elapsed >= total + INTRO_SETTLE_SEC) beginSweep()
-                    return
-                }
-                const eased = easeInOutCubic(elapsed / total)
-                const pos = eased * levels
-                depth = Math.min(levels, Math.floor(pos) + 1)
-                spawnT = pos - Math.floor(pos)
+                const at = spawnAt(elapsed, total, levels)
+                depth = at.depth
+                spawnT = at.t
+                if (at.done && elapsed >= total + INTRO_SETTLE_SEC) beginSweep()
                 return
             }
 
