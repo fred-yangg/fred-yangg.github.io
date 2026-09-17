@@ -51,19 +51,32 @@ function spawnAt(elapsed: number, total: number, levels: number) {
     return {depth: levels, t: 1, done: true}
 }
 
-function mirroredHandsHour(clockHour: number) {
-    return 12 * (clockHour + 1) / 13
-}
+const MIN_START_BEHIND_HOURS = 1
+const MAX_START_BEHIND_HOURS = 2
+const MIN_HAND_SEPARATION_DEG = 30
+const MAX_HAND_SEPARATION_DEG = 70
+const START_HOUR_SAMPLES = 3600
 
-function hourDistance(a: number, b: number) {
-    const d = wrapHour(a - b)
-    return Math.min(d, 12 - d)
+function handSeparationDegrees(hour: number) {
+    const wrapped = wrapHour(hour)
+    const hourDeg = wrapped * 30
+    const minuteDeg = (wrapped % 1) * 360
+    const delta = Math.abs(hourDeg - minuteDeg) % 360
+    return Math.min(delta, 360 - delta)
 }
 
 function introStartHour(now: number) {
-    const aroundEleven = mirroredHandsHour(11)
-    const aroundTen = mirroredHandsHour(10)
-    return hourDistance(now, aroundEleven) < 1 ? aroundTen : aroundEleven
+    const span = MAX_START_BEHIND_HOURS - MIN_START_BEHIND_HOURS
+    const valid: number[] = []
+    for (let i = 0; i < START_HOUR_SAMPLES; i++) {
+        const hour = now - MIN_START_BEHIND_HOURS - (i / START_HOUR_SAMPLES) * span
+        const separation = handSeparationDegrees(hour)
+        if (separation >= MIN_HAND_SEPARATION_DEG && separation <= MAX_HAND_SEPARATION_DEG) {
+            valid.push(hour)
+        }
+    }
+    if (valid.length === 0) return now - MIN_START_BEHIND_HOURS
+    return valid[Math.floor(Math.random() * valid.length)]
 }
 
 function sweepEnd(startHour: number, nowHour: number) {
