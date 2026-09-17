@@ -31,7 +31,7 @@ function easeInCubic(t: number) {
 }
 
 function spawnWeight(depth: number, levels: number) {
-    return easeInCubic(0.9 * (1 - depth / levels))
+    return easeInCubic(0.7 * (1 - depth / levels))
 }
 
 function spawnAt(elapsed: number, total: number, levels: number) {
