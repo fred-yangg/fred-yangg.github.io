@@ -33,12 +33,18 @@ function easeInCubic(t: number) {
 function spawnAt(elapsed: number, total: number, levels: number) {
     if (elapsed <= 0) return {depth: 1, t: 0, done: false}
     if (elapsed >= total) return {depth: levels, t: 1, done: true}
-    const k = levels * (elapsed / total) ** (1 / 3)
-    const depth = Math.min(levels, Math.floor(k) + 1)
-    const t0 = total * easeInCubic((depth - 1) / levels)
-    const t1 = total * easeInCubic(depth / levels)
-    const u = t1 > t0 ? Math.min(1, Math.max(0, (elapsed - t0) / (t1 - t0))) : 1
-    return {depth, t: easeInCubic(u), done: false}
+    let weightSum = 0
+    for (let i = 1; i <= levels; i++) weightSum += easeInCubic(i / levels)
+    let acc = 0
+    for (let depth = 1; depth <= levels; depth++) {
+        const duration = total * easeInCubic(depth / levels) / weightSum
+        if (elapsed < acc + duration || depth === levels) {
+            const u = duration > 0 ? Math.min(1, Math.max(0, (elapsed - acc) / duration)) : 1
+            return {depth, t: easeInCubic(u), done: false}
+        }
+        acc += duration
+    }
+    return {depth: levels, t: 1, done: true}
 }
 
 function mirroredHandsHour(clockHour: number) {
