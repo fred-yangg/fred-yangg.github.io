@@ -11,8 +11,9 @@ import {
 } from './constants.ts'
 import {resizeCanvas} from './dom.ts'
 import {drawFace, layoutDigitalTime} from './face.ts'
-import {createHands, fillInstances} from './fractal.ts'
+import {createHands, fillInstances, maxFractalDepth} from './fractal.ts'
 import {createClockGl} from './gl.ts'
+import {createIntro} from './intro.ts'
 import {attachHandDrag} from './interact.ts'
 import {applyClockTheme, effectiveClockTheme, readThemeColors} from './theme.ts'
 import {formatDigitalTime, hourFromDate, updateTimeAngles} from './time.ts'
@@ -37,10 +38,16 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
     const hands = createHands()
     const instances = new Float32Array(MAX_INSTANCES * INSTANCE_FLOATS)
     const queue = new Float32Array(MAX_INSTANCES * QUEUE_FLOATS)
+    const intro = createIntro()
+
+    settings.syncToNow = false
+    settings.hoursPerSecond = 0
+    settings.hour = intro.startHour
 
     let cssWidth = 0
     let cssHeight = 0
     let handLength = 0
+    let introDepth = 0
     let raf = 0
     let lastTs = performance.now()
     let lastTheme: string | undefined
@@ -81,21 +88,43 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
         const colors = readThemeColors()
         if (colors.ink !== lastTheme) layout()
 
-        if (drag.isDragging()) {
-            settings.syncToNow = false
-        } else if (settings.syncToNow) {
-            settings.hour = hourFromDate()
-            settings.hoursPerSecond = 0
-        } else {
-            settings.hoursPerSecond = Math.max(
-                -MAX_MINUTE_RPS,
-                Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond),
-            )
-            settings.hour += settings.hoursPerSecond * dt
+        if (!intro.done) {
+            const userTookOver = drag.isDragging()
+                || settings.syncToNow
+                || Math.abs(settings.hoursPerSecond) > 1e-12
+            if (userTookOver) {
+                intro.skip()
+            } else if (handLength >= 1) {
+                if (introDepth < 1) introDepth = maxFractalDepth(handLength)
+                intro.update(dt, introDepth)
+                settings.hour = intro.hour
+                if (intro.done) {
+                    settings.syncToNow = true
+                    settings.hoursPerSecond = 0
+                    settings.hour = hourFromDate()
+                }
+            }
         }
-        updateTimeAngles(hands, settings.hour)
+
+        if (intro.done) {
+            if (drag.isDragging()) {
+                settings.syncToNow = false
+            } else if (settings.syncToNow) {
+                settings.hour = hourFromDate()
+                settings.hoursPerSecond = 0
+            } else {
+                settings.hoursPerSecond = Math.max(
+                    -MAX_MINUTE_RPS,
+                    Math.min(MAX_MINUTE_RPS, settings.hoursPerSecond),
+                )
+                settings.hour += settings.hoursPerSecond * dt
+            }
+        }
+        updateTimeAngles(hands, settings.hour, settings.discreteHourHand, settings.discreteHourStep)
         if (digitalTime) {
-            const label = formatDigitalTime(settings.hour)
+            const label = formatDigitalTime(
+                intro.done || !intro.spawn ? settings.hour : intro.startHour,
+            )
             if (digitalTime.textContent !== label) digitalTime.textContent = label
         }
         const nowTheme = effectiveClockTheme(settings.theme)
@@ -124,6 +153,7 @@ export function startClock(container: HTMLElement, settings: ClockSettings) {
             settings.gradientCurve,
             settings.hourBias,
             settings.minuteBias,
+            intro.spawn,
         )
         renderer.draw(instances, count, cssWidth, cssHeight)
         if (!revealed) {

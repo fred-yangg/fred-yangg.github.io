@@ -10,6 +10,7 @@ import {
     ROOT_MINUTE_WIDTH_PX,
     SCALE,
 } from './constants.ts'
+import type {IntroSpawn} from './intro.ts'
 import type {GradientCurve, Hand} from './types.ts'
 
 export function createHands(): Hand[] {
@@ -19,7 +20,7 @@ export function createHands(): Hand[] {
     ]
 }
 
-function maxFractalDepth(rootLength: number) {
+export function maxFractalDepth(rootLength: number) {
     let depth = 0
     let len = rootLength * SCALE
     while (len >= MIN_LENGTH_PX && depth < 40) {
@@ -27,6 +28,16 @@ function maxFractalDepth(rootLength: number) {
         len *= SCALE
     }
     return Math.max(1, depth)
+}
+
+function mix(a: number, b: number, t: number) {
+    return a + (b - a) * t
+}
+
+function mixAngle(from: number, to: number, t: number) {
+    const tau = Math.PI * 2
+    const delta = to - from
+    return from + (delta - Math.round(delta / tau) * tau) * t
 }
 
 export function fillInstances(
@@ -42,6 +53,7 @@ export function fillInstances(
     curve: GradientCurve,
     hourBias: number,
     minuteBias: number,
+    spawn?: IntroSpawn,
 ) {
     let count = 0
     const maxLen = rootLength * SCALE
@@ -80,9 +92,42 @@ export function fillInstances(
         return true
     }
 
+    const emitSpawned = (
+        pOx: number,
+        pOy: number,
+        pAngle: number,
+        pLen: number,
+        pWidth: number,
+        pRgb: readonly number[],
+        cOx: number,
+        cOy: number,
+        cAngle: number,
+        cLen: number,
+        cRgb: readonly number[],
+        t: number,
+    ) => {
+        const rgb = lerpColor(pRgb, cRgb, t)
+        return emit(
+            mix(pOx, cOx, t),
+            mix(pOy, cOy, t),
+            mixAngle(pAngle, cAngle, t),
+            mix(pLen, cLen, t),
+            mix(pWidth, CHILD_STROKE_WIDTH_PX, t),
+            rgb,
+        )
+    }
+
     let qh = 0
     let qt = 0
-    const enqueue = (x: number, y: number, angle: number, len: number, depth: number, bias: number) => {
+    const enqueue = (
+        x: number,
+        y: number,
+        angle: number,
+        len: number,
+        depth: number,
+        bias: number,
+        width: number,
+    ) => {
         if (qt + QUEUE_FLOATS > queue.length) return
         queue[qt++] = x
         queue[qt++] = y
@@ -90,6 +135,65 @@ export function fillInstances(
         queue[qt++] = len
         queue[qt++] = depth
         queue[qt++] = bias
+        queue[qt++] = width
+    }
+
+    const spawnPair = (
+        ox: number,
+        oy: number,
+        base: number,
+        pairLen: number,
+        pairDepth: number,
+        bias: number,
+        pairWidth: number,
+        isRoot: boolean,
+    ) => {
+        const childDepth = pairDepth + 1
+        if (spawn && childDepth > spawn.depth) return true
+        const t = spawn && childDepth === spawn.depth ? spawn.t : 1
+        for (const parentHand of hands) {
+            if (!parentHand.enabled) continue
+            const parentAngle = base + parentHand.angle
+            const tipx = ox + pairLen * Math.sin(parentAngle)
+            const tipy = oy - pairLen * Math.cos(parentAngle)
+            const childLen = pairLen * SCALE
+            if (childLen < MIN_LENGTH_PX && t >= 1) continue
+            const childBias = bias * (parentHand.isHour ? hBias : mBias)
+            for (const childHand of hands) {
+                if (!childHand.enabled) continue
+                const startLen = isRoot ? pairLen * childHand.rootThickFraction : pairLen
+                const startWidth = isRoot ? childHand.rootWidth : pairWidth
+                const startRgb = isRoot
+                    ? inkRgb
+                    : colorAt(pairLen, pairDepth, bias, childHand.isHour)
+                if (!emitSpawned(
+                    ox,
+                    oy,
+                    base + childHand.angle,
+                    startLen,
+                    startWidth,
+                    startRgb,
+                    tipx,
+                    tipy,
+                    parentAngle + childHand.angle,
+                    childLen,
+                    colorAt(childLen, childDepth, childBias, childHand.isHour),
+                    t,
+                )) return false
+            }
+            if (childLen >= MIN_LENGTH_PX && (!spawn || childDepth < spawn.depth)) {
+                enqueue(
+                    tipx,
+                    tipy,
+                    parentAngle,
+                    childLen,
+                    childDepth,
+                    childBias,
+                    CHILD_STROKE_WIDTH_PX,
+                )
+            }
+        }
+        return true
     }
 
     for (const hand of hands) {
@@ -99,32 +203,33 @@ export function fillInstances(
         if (!emit(cx, cy, angle, thickLen, hand.rootWidth, inkRgb)) return count
     }
 
+    if (spawn && spawn.depth < 1) return count
+
     for (const hand of hands) {
         if (!hand.enabled) continue
+        if (hand.rootThickFraction >= 1) continue
+        const thinLen = rootLength - rootLength * hand.rootThickFraction
+        if (thinLen < MIN_LENGTH_PX) continue
         const angle = hand.angle
         const thickLen = rootLength * hand.rootThickFraction
-        if (hand.rootThickFraction < 1) {
-            const thinLen = rootLength - thickLen
-            if (thinLen >= MIN_LENGTH_PX) {
-                if (!emit(
-                    cx + thickLen * Math.sin(angle),
-                    cy - thickLen * Math.cos(angle),
-                    angle,
-                    thinLen,
-                    CHILD_STROKE_WIDTH_PX,
-                    colorAt(thinLen, 0, 1, true),
-                )) return count
-            }
-        }
-        enqueue(
-            cx + rootLength * Math.sin(angle),
-            cy - rootLength * Math.cos(angle),
+        const stubT = !spawn || spawn.depth > 1 ? 1 : spawn.t
+        if (!emitSpawned(
+            cx,
+            cy,
             angle,
-            rootLength * SCALE,
-            1,
-            hand.isHour ? hBias : mBias,
-        )
+            thickLen,
+            hand.rootWidth,
+            inkRgb,
+            cx + thickLen * Math.sin(angle),
+            cy - thickLen * Math.cos(angle),
+            angle,
+            thinLen,
+            colorAt(thinLen, 0, 1, true),
+            stubT,
+        )) return count
     }
+
+    if (!spawnPair(cx, cy, 0, rootLength, 0, 1, CHILD_STROKE_WIDTH_PX, true)) return count
 
     while (qh < qt) {
         const x = queue[qh++]
@@ -133,22 +238,9 @@ export function fillInstances(
         const len = queue[qh++]
         const depth = queue[qh++]
         const bias = queue[qh++]
+        const width = queue[qh++]
         if (len < MIN_LENGTH_PX) continue
-        for (const hand of hands) {
-            if (!hand.enabled) continue
-            const angle = baseAngle + hand.angle
-            if (!emit(x, y, angle, len, CHILD_STROKE_WIDTH_PX, colorAt(len, depth, bias, hand.isHour))) return count
-            const childLen = len * SCALE
-            if (childLen < MIN_LENGTH_PX) continue
-            enqueue(
-                x + len * Math.sin(angle),
-                y - len * Math.cos(angle),
-                angle,
-                childLen,
-                depth + 1,
-                bias * (hand.isHour ? hBias : mBias),
-            )
-        }
+        if (!spawnPair(x, y, baseAngle, len, depth, bias, width, false)) return count
     }
 
     return count
