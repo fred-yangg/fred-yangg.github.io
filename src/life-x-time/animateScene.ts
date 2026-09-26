@@ -1,10 +1,25 @@
-import { nextGeneration } from './life';
+import { forEachLive, nextGeneration, type Universe } from './life';
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import state from './state';
-import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { CUBE_SIZE, MS_PER_GEN, MAX_TRAIL_LENGTH, RENDER_PADDING } from "./constants";
-import {BufferGeometry, Mesh} from "three";
+import { CUBE_SIZE, MS_PER_GEN, MAX_TRAIL_LENGTH } from "./constants";
+
+const FACE_COLORS = [0xE06020, 0xE0A000, 0xE0D000, 0x603060, 0xC02050, 0xC02050];
+
+const createCubeGeometry = () => {
+    const geometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+    const color = new THREE.Color();
+    const colors = new Float32Array(geometry.getAttribute('position').count * 3);
+    for (let face = 0; face < 6; face++) {
+        color.setHex(FACE_COLORS[face]);
+        for (let vertex = 0; vertex < 4; vertex++) {
+            color.toArray(colors, (face * 4 + vertex) * 3);
+        }
+    }
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.clearGroups();
+    return geometry;
+};
 
 const animateScene = (div: HTMLDivElement) => {
     const width = window.innerWidth;
@@ -13,62 +28,71 @@ const animateScene = (div: HTMLDivElement) => {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xFFFFFF);
+    // Distance is remapped to world -Y in onBeforeCompile, so this fades the trail bottom.
+    scene.fog = new THREE.Fog(0xFFFFFF, MAX_TRAIL_LENGTH * 0.5, MAX_TRAIL_LENGTH * 0.92);
 
+    // Symmetric clip volume so orbiting head-on does not slice gliders behind the camera.
+    const clipExtent = Math.max(2000, MAX_TRAIL_LENGTH * 4);
     const camera = new THREE.OrthographicCamera(
         -aspect * 5, // left
         aspect * 5,  // right
         5,           // top
         -5,          // bottom
-        0.1,         // near
-        10000          // far
+        -clipExtent,
+        clipExtent,
     );
 
     const renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(width, height);
     div.appendChild(renderer.domElement);
 
-    // Add a cube
-    const cubeMaterials = [
-      new THREE.MeshBasicMaterial({ color: 0xE06020 }),
-      new THREE.MeshBasicMaterial({ color: 0xE0A000 }),
-      new THREE.MeshBasicMaterial({ color: 0xE0D000 }),
-      new THREE.MeshBasicMaterial({ color: 0x603060 }),
-      new THREE.MeshBasicMaterial({ color: 0xC02050 }),
-      new THREE.MeshBasicMaterial({ color: 0xC02050 }),
-    ];
+    const cubeGeometry = createCubeGeometry();
+    const cubeMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+    cubeMaterial.customProgramCacheKey = () => 'life-height-fog';
+    cubeMaterial.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader.replace(
+            '#include <fog_vertex>',
+            `
+#ifdef USE_FOG
+    vec4 fogWorldPosition = vec4(transformed, 1.0);
+    #ifdef USE_INSTANCING
+        fogWorldPosition = instanceMatrix * fogWorldPosition;
+    #endif
+    fogWorldPosition = modelMatrix * fogWorldPosition;
+    vFogDepth = -fogWorldPosition.y;
+#endif
+            `,
+        );
+    };
+    const dummy = new THREE.Object3D();
 
-    const makeCube = (x: number, y: number, z: number) => {
-        const cube = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-        cube.translate(x, y, z);
-        return cube
-    }
-
-    const makeGrid = (grid: boolean[][]) => {
-        const cubes: BufferGeometry[] = []
-        const xLength = grid[0].length - RENDER_PADDING * 2;
-        const zLength = grid.length - RENDER_PADDING * 2;
-        const xOffset = 0.5 - xLength / 2;
-        const zOffset = 0.5 - zLength / 2;
-        grid.forEach((row, z) => {
-            row.forEach((cell, x) => {
-                if (!cell ||
-                    x < RENDER_PADDING ||
-                    x >= row.length - RENDER_PADDING ||
-                    z < RENDER_PADDING ||
-                    z >= grid.length - RENDER_PADDING) {
-                    return;
-                }
-                const cube = makeCube(xOffset + x, 0, zOffset + z);
-                cubes.push(cube);
-            });
+    const makeLayer = (live: Universe) => {
+        const cells: number[] = [];
+        forEachLive(live, (x, z) => {
+            cells.push(x, z);
         });
-        const gridGeometry = BufferGeometryUtils.mergeGeometries(cubes, false);
-        const totalFaces = (gridGeometry.getIndex()?.count ?? 0) / 6;
-        for (let i = 0; i < totalFaces; ++i) {
-            gridGeometry.addGroup(i * 6, 6, i % 6);
+
+        const count = cells.length / 2;
+        if (count === 0) return new THREE.Object3D();
+
+        const mesh = new THREE.InstancedMesh(cubeGeometry, cubeMaterial, count);
+        // InstancedMesh culling uses the prototype box at the origin, not the instances.
+        mesh.frustumCulled = false;
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+        for (let i = 0; i < count; i++) {
+            dummy.position.set(cells[i * 2], 0, cells[i * 2 + 1]);
+            dummy.updateMatrix();
+            mesh.setMatrixAt(i, dummy.matrix);
         }
-        return new THREE.Mesh(gridGeometry, cubeMaterials);
-    }
+        return mesh;
+    };
+
+    const disposeLayer = (layer: THREE.Object3D) => {
+        layer.removeFromParent();
+        if (layer instanceof THREE.InstancedMesh) {
+            layer.dispose();
+        }
+    };
 
     camera.position.x = 100;
     camera.position.y = 100;
@@ -78,13 +102,13 @@ const animateScene = (div: HTMLDivElement) => {
 	controls.maxPolarAngle = Math.PI / 2;
     controls.enablePan = false;
 
-    const firstGrid = makeGrid(state.grid);
+    const firstGrid = makeLayer(state.live);
     scene.add(firstGrid);
 
     let offset = 0;
     state.lastTime = performance.now();
     let timeDelta = 0;
-    const layers: Mesh[] = [firstGrid]
+    const layers: THREE.Object3D[] = [firstGrid]
 
     // Animation loop
     const animate = () => {
@@ -106,15 +130,15 @@ const animateScene = (div: HTMLDivElement) => {
             layers[layers.length - 1].scale.y = 1
 
             for (let i = 0; i < newLayers; ++i) {
-                state.grid = nextGeneration(state.grid);
-                const grid = makeGrid(state.grid)
-                layers.push(grid);
-                scene.add(grid);
+                state.live = nextGeneration(state.live);
+                const layer = makeLayer(state.live)
+                layers.push(layer);
+                scene.add(layer);
             }
 
             while (layers.length > MAX_TRAIL_LENGTH) {
                 const bottomGrid = layers.shift();
-                bottomGrid?.removeFromParent()
+                if (bottomGrid) disposeLayer(bottomGrid);
             }
         }
 

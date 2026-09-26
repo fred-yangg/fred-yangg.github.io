@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import animateScene from './animateScene';
 import { GosperGliderGun } from './gridPresets';
-import { RENDER_PADDING } from './constants';
-import { padGrid } from './life';
+import { liveFromGrid } from './life';
 import state from './state';
 
 const Scene = () => {
@@ -12,8 +11,7 @@ const Scene = () => {
         const div = mountRef.current;
         if (!div) return;
 
-        state.grid = GosperGliderGun;
-        state.grid = padGrid(state.grid, RENDER_PADDING);
+        state.live = liveFromGrid(GosperGliderGun);
     
         animateScene(div);
     }, []);

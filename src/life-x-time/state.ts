@@ -1,15 +1,17 @@
+import {emptyUniverse, type Universe} from './life';
+
 type stateType = {
-    grid: boolean[][];
     inactive: boolean;
     lastTime: number;
+    live: Universe;
     paused: boolean;
     scale: number;
 }
 
 const state: stateType = {
-    grid: [],
     inactive: false,
     lastTime: 0,
+    live: emptyUniverse(),
     paused: false,
     scale: 1,
 }
