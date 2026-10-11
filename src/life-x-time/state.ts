@@ -1,19 +1,46 @@
-import {emptyUniverse, type Universe} from './life';
+import type {PresetId} from './patterns';
 
-type stateType = {
+export type Playback = {
     inactive: boolean;
-    lastTime: number;
-    live: Universe;
     paused: boolean;
-    scale: number;
-}
+    preset: PresetId;
+    resetToken: number;
+    speed: number;
+    scrubbing: boolean;
+    scrubTo: number | null;
+    displayTime: number;
+    baseGen: number;
+    latestGen: number;
+    population: number;
+    loading: boolean;
+};
 
-const state: stateType = {
+const state: Playback = {
     inactive: false,
-    lastTime: 0,
-    live: emptyUniverse(),
     paused: false,
-    scale: 1,
-}
+    preset: 'gun',
+    resetToken: 0,
+    speed: 15,
+    scrubbing: false,
+    scrubTo: null,
+    displayTime: 0,
+    baseGen: 0,
+    latestGen: 0,
+    population: 0,
+    loading: false,
+};
+
+const listeners = new Set<() => void>();
+
+export const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+    };
+};
+
+export const emit = () => {
+    for (const listener of listeners) listener();
+};
 
 export default state;

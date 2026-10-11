@@ -244,10 +244,10 @@ const freeNode = (id: number) => {
 
 // Drop nodes nothing alive points at. Memos of the surviving tree are kept,
 // including the futures those memos point at, so repeated machinery stays warm.
-const collect = (root: number) => {
+const collect = (roots: number[]) => {
     stamp++;
     for (let k = 0; k < zero.length; k++) mark(zero[k]);
-    mark(root);
+    for (const root of roots) mark(root);
     let grew = true;
     while (grew) {
         grew = false;
@@ -396,10 +396,206 @@ export const forEachLive = (universe: Universe, visit: (x: number, y: number) =>
     walk(universe.root, universe.originX, universe.originY, visit);
 };
 
+export const population = (universe: Universe): number => pop[universe.root];
+
 export const advanceGenerations = (universe: Universe, generations: number): Universe => {
     const [root, originX, originY] = advance(universe.root, universe.originX, universe.originY, generations);
-    collect(root);
     return {root, originX, originY};
 };
 
 export const nextGeneration = (universe: Universe): Universe => advanceGenerations(universe, 1);
+
+// Keep every universe the caller still needs. Anything else is freed.
+export const retain = (universes: Universe[]) => {
+    collect(universes.length > 0 ? universes.map(universe => universe.root) : [getZero(3)]);
+};
+
+export type Bounds = {minX: number; minY: number; maxX: number; maxY: number};
+
+export const bounds = (universe: Universe): Bounds => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const visit = (id: number, x: number, y: number) => {
+        if (pop[id] === 0) return;
+        if (level[id] === 0) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+            return;
+        }
+        const half = 2 ** (level[id] - 1);
+        visit(nw[id], x, y);
+        visit(ne[id], x + half, y);
+        visit(sw[id], x, y + half);
+        visit(se[id], x + half, y + half);
+    };
+    visit(universe.root, universe.originX, universe.originY);
+    if (!Number.isFinite(minX)) return {minX: 0, minY: 0, maxX: 0, maxY: 0};
+    return {minX, minY, maxX, maxY};
+};
+
+export const centerUniverse = (universe: Universe): Universe => {
+    const box = bounds(universe);
+    const shiftX = -Math.floor((box.minX + box.maxX) / 2);
+    const shiftY = -Math.floor((box.minY + box.maxY) / 2);
+    return {root: universe.root, originX: universe.originX + shiftX, originY: universe.originY + shiftY};
+};
+
+// Breadth-first. Stops splitting once another split would pass the instance budget,
+// so a zoomed-out view stays a few boxes per pixel instead of one cube per cell.
+export const walkLod = (
+    universe: Universe,
+    minSize: number,
+    budget: number,
+    emit: (x: number, y: number, size: number, population: number) => void,
+) => {
+    if (pop[universe.root] === 0 || budget <= 0) return 0;
+    const queueId = [universe.root];
+    const queueX = [universe.originX];
+    const queueY = [universe.originY];
+    let head = 0;
+    let emitted = 0;
+    while (head < queueId.length) {
+        const id = queueId[head];
+        const x = queueX[head];
+        const y = queueY[head];
+        head++;
+        const size = 2 ** level[id];
+        const pending = queueId.length - head;
+        const canSplit = level[id] > 0 && size > minSize && emitted + pending + 4 <= budget;
+        if (!canSplit) {
+            emit(x, y, size, pop[id]);
+            emitted++;
+            continue;
+        }
+        const half = size / 2;
+        const kids = [nw[id], ne[id], sw[id], se[id]];
+        const xs = [x, x + half, x, x + half];
+        const ys = [y, y, y + half, y + half];
+        for (let corner = 0; corner < 4; corner++) {
+            if (pop[kids[corner]] === 0) continue;
+            queueId.push(kids[corner]);
+            queueX.push(xs[corner]);
+            queueY.push(ys[corner]);
+        }
+    }
+    return emitted;
+};
+
+const buildFromCells = (cells: [number, number][]): Universe => {
+    if (cells.length === 0) return emptyUniverse();
+    let minX = Infinity;
+    let minY = Infinity;
+    for (const [x, y] of cells) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+    }
+    let tiles = new Map<string, number>();
+    for (const [x, y] of cells) tiles.set((x - minX) + ',' + (y - minY), ON);
+    let k = 0;
+    while (tiles.size !== 1 || k === 0) {
+        const next = new Map<string, number>();
+        const blank = getZero(k);
+        while (tiles.size > 0) {
+            const key = tiles.keys().next().value;
+            if (key === undefined) break;
+            const comma = key.indexOf(',');
+            let x = Number(key.slice(0, comma));
+            let y = Number(key.slice(comma + 1));
+            x &= ~1;
+            y &= ~1;
+            const a = take(tiles, x, y, blank);
+            const b = take(tiles, x + 1, y, blank);
+            const c = take(tiles, x, y + 1, blank);
+            const d = take(tiles, x + 1, y + 1, blank);
+            next.set((x >> 1) + ',' + (y >> 1), join(a, b, c, d));
+        }
+        tiles = next;
+        k++;
+    }
+    const only = tiles.entries().next().value;
+    if (only === undefined) return emptyUniverse();
+    const comma = only[0].indexOf(',');
+    const tx = Number(only[0].slice(0, comma));
+    const ty = Number(only[0].slice(comma + 1));
+    const [root, originX, originY] = pad(only[1], minX + tx * 2 ** k, minY + ty * 2 ** k);
+    return {root, originX, originY};
+};
+
+export const universeFromLife105 = (text: string): Universe => {
+    const cells: [number, number][] = [];
+    let originX = 0;
+    let originY = 0;
+    let row = 0;
+    let placing = false;
+    for (const line of text.split(/\r?\n/)) {
+        if (line.startsWith('#P')) {
+            const parts = line.trim().split(/\s+/);
+            originX = Number(parts[1]);
+            originY = Number(parts[2]);
+            row = 0;
+            placing = true;
+            continue;
+        }
+        if (!placing || line.startsWith('#') || line.length === 0) continue;
+        for (let x = 0; x < line.length; x++) {
+            if (line[x] === '*') cells.push([originX + x, originY + row]);
+        }
+        row++;
+    }
+    return buildFromCells(cells);
+};
+
+const leafNode = (line: string): number => {
+    const bits: number[][] = [];
+    let row: number[] = [];
+    for (const char of line) {
+        if (char === '$') {
+            bits.push(row);
+            row = [];
+            continue;
+        }
+        if (char === '*') row.push(1);
+        else if (char === '.') row.push(0);
+    }
+    if (row.length > 0) bits.push(row);
+    const cellAt = (x: number, y: number) => (bits[y] && bits[y][x] ? ON : OFF);
+    const build = (x: number, y: number, size: number): number => {
+        if (size === 1) return cellAt(x, y);
+        const half = size / 2;
+        return join(
+            build(x, y, half),
+            build(x + half, y, half),
+            build(x, y + half, half),
+            build(x + half, y + half, half),
+        );
+    };
+    return build(0, 0, 8);
+};
+
+// Golly macrocell: 8x8 leaves, then "level nw ne sw se" nodes. Node 0 is empty.
+export const universeFromMacrocell = (text: string): Universe => {
+    const nodes: number[] = [0];
+    for (const raw of text.split(/\r?\n/)) {
+        const line = raw.trim();
+        if (line.length === 0 || line.startsWith('#') || line.startsWith('[')) continue;
+        const first = line[0];
+        if (first === '.' || first === '*' || first === '$') {
+            nodes.push(leafNode(line));
+            continue;
+        }
+        const parts = line.split(' ');
+        if (parts.length !== 5) continue;
+        const nodeLevel = Number(parts[0]);
+        const kids = [Number(parts[1]), Number(parts[2]), Number(parts[3]), Number(parts[4])];
+        const child = (index: number) => index === 0 ? getZero(nodeLevel - 1) : nodes[index];
+        nodes.push(join(child(kids[0]), child(kids[1]), child(kids[2]), child(kids[3])));
+    }
+    const root = nodes[nodes.length - 1];
+    const size = 2 ** level[root];
+    // Upper-left cell of the root's southeast child is (0, 1) in Golly's convention.
+    return {root, originX: -size / 2, originY: 1 - size / 2};
+};

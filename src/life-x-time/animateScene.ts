@@ -1,13 +1,17 @@
-import { forEachLive, nextGeneration, type Universe } from './life';
-import * as THREE from 'three'
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import state from './state';
-import { CUBE_SIZE, MS_PER_GEN, MAX_TRAIL_LENGTH } from "./constants";
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {bounds, nextGeneration, population, retain, walkLod, type Bounds, type Universe} from './life';
+import {loadPreset} from './patterns';
+import state, {emit} from './state';
+import {MAX_TRAIL_LENGTH} from './constants';
 
 const FACE_COLORS = [0xE06020, 0xE0A000, 0xE0D000, 0x603060, 0xC02050, 0xC02050];
+const INSTANCE_BUDGET = 20000;
+const MAX_HISTORY = 600;
+const BUILDS_PER_FRAME = 3;
 
 const createCubeGeometry = () => {
-    const geometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
     const color = new THREE.Color();
     const colors = new Float32Array(geometry.getAttribute('position').count * 3);
     for (let face = 0; face < 6; face++) {
@@ -21,33 +25,30 @@ const createCubeGeometry = () => {
     return geometry;
 };
 
+type CachedLayer = {mesh: THREE.InstancedMesh; minSize: number};
+
 const animateScene = (div: HTMLDivElement) => {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xFFFFFF);
+    scene.fog = new THREE.Fog(0xFFFFFF, MAX_TRAIL_LENGTH * 0.5, MAX_TRAIL_LENGTH * 0.92);
+
     const width = window.innerWidth;
     const height = window.innerHeight;
     const aspect = width / height;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xFFFFFF);
-    // Distance is remapped to world -Y in onBeforeCompile, so this fades the trail bottom.
-    scene.fog = new THREE.Fog(0xFFFFFF, MAX_TRAIL_LENGTH * 0.5, MAX_TRAIL_LENGTH * 0.92);
-
-    // Symmetric clip volume so orbiting head-on does not slice gliders behind the camera.
-    const clipExtent = Math.max(2000, MAX_TRAIL_LENGTH * 4);
-    const camera = new THREE.OrthographicCamera(
-        -aspect * 5, // left
-        aspect * 5,  // right
-        5,           // top
-        -5,          // bottom
-        -clipExtent,
-        clipExtent,
-    );
+    const camera = new THREE.OrthographicCamera(-aspect * 5, aspect * 5, 5, -5, -8000, 8000);
+    camera.position.set(80, 70, 80);
 
     const renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(width, height);
     div.appendChild(renderer.domElement);
 
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 0, 0);
+    controls.update();
+
     const cubeGeometry = createCubeGeometry();
-    const cubeMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+    const cubeMaterial = new THREE.MeshBasicMaterial({vertexColors: true, fog: true});
     cubeMaterial.customProgramCacheKey = () => 'life-height-fog';
     cubeMaterial.onBeforeCompile = (shader) => {
         shader.vertexShader = shader.vertexShader.replace(
@@ -64,100 +65,229 @@ const animateScene = (div: HTMLDivElement) => {
             `,
         );
     };
+
     const dummy = new THREE.Object3D();
+    const tint = new THREE.Color();
+    const meshes = new Map<number, CachedLayer>();
+    let history: Universe[] = [];
+    let base = 0;
+    let displayTime = 0;
+    let seenReset = -1;
+    let running = true;
+    let lastEmit = -1;
 
-    const makeLayer = (live: Universe) => {
-        const cells: number[] = [];
-        forEachLive(live, (x, z) => {
-            cells.push(x, z);
+    const latest = () => base + history.length - 1;
+
+    const disposeMesh = (gen: number) => {
+        const cached = meshes.get(gen);
+        if (!cached) return;
+        scene.remove(cached.mesh);
+        cached.mesh.dispose();
+        meshes.delete(gen);
+    };
+
+    const clearMeshes = () => {
+        for (const gen of [...meshes.keys()]) disposeMesh(gen);
+    };
+
+    const framePattern = (box: Bounds) => {
+        const span = Math.max(box.maxX - box.minX + 1, box.maxY - box.minY + 1, 16);
+        const cx = (box.minX + box.maxX) / 2;
+        const cz = (box.minY + box.maxY) / 2;
+        const view = Math.min(camera.right - camera.left, camera.top - camera.bottom);
+        camera.zoom = view / (span * 1.45);
+        const clip = Math.max(8000, span * 8);
+        camera.near = -clip;
+        camera.far = clip;
+        camera.updateProjectionMatrix();
+        controls.target.set(cx, 0, cz);
+        camera.position.set(cx + span, span * 0.7, cz + span);
+        controls.update();
+    };
+
+    const buildLayer = (universe: Universe, minSize: number) => {
+        const items: {x: number; y: number; size: number; population: number}[] = [];
+        walkLod(universe, minSize, INSTANCE_BUDGET, (x, y, size, count) => {
+            items.push({x, y, size, population: count});
         });
-
-        const count = cells.length / 2;
-        if (count === 0) return new THREE.Object3D();
-
-        const mesh = new THREE.InstancedMesh(cubeGeometry, cubeMaterial, count);
-        // InstancedMesh culling uses the prototype box at the origin, not the instances.
+        if (items.length === 0) return null;
+        const mesh = new THREE.InstancedMesh(cubeGeometry, cubeMaterial, items.length);
         mesh.frustumCulled = false;
         mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-        for (let i = 0; i < count; i++) {
-            dummy.position.set(cells[i * 2], 0, cells[i * 2 + 1]);
+        for (let index = 0; index < items.length; index++) {
+            const item = items[index];
+            const footprint = item.size * 0.96;
+            const thick = Math.min(item.size, 1) * 0.96;
+            dummy.position.set(item.x + item.size / 2, 0, item.y + item.size / 2);
+            dummy.scale.set(footprint, thick, footprint);
+            dummy.rotation.set(0, 0, 0);
             dummy.updateMatrix();
-            mesh.setMatrixAt(i, dummy.matrix);
+            mesh.setMatrixAt(index, dummy.matrix);
+            if (item.size <= 1) tint.setRGB(1, 1, 1);
+            else {
+                const density = Math.min(1, (item.population / (item.size * item.size)) * 6);
+                tint.setRGB(1, 0.55 + density * 0.45, 0.35 + density * 0.4);
+            }
+            mesh.setColorAt(index, tint);
         }
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         return mesh;
     };
 
-    const disposeLayer = (layer: THREE.Object3D) => {
-        layer.removeFromParent();
-        if (layer instanceof THREE.InstancedMesh) {
-            layer.dispose();
-        }
-    };
-
-    camera.position.x = 100;
-    camera.position.y = 100;
-    camera.position.z = 100;
-
-    const controls = new OrbitControls( camera, renderer.domElement );
-	controls.maxPolarAngle = Math.PI / 2;
-    controls.enablePan = false;
-
-    const firstGrid = makeLayer(state.live);
-    scene.add(firstGrid);
-
-    let offset = 0;
-    state.lastTime = performance.now();
-    let timeDelta = 0;
-    const layers: THREE.Object3D[] = [firstGrid]
-
-    // Animation loop
-    const animate = () => {
-        timeDelta = performance.now() - state.lastTime;
-        state.lastTime = performance.now();
-
-        if (state.paused || state.inactive) {
-            renderer.render(scene, camera);
-            requestAnimationFrame( animate );
+    const placeLayer = (
+        mesh: THREE.Object3D,
+        gen: number,
+        playhead: number,
+        oldest: number,
+        frac: number,
+        stride: number,
+    ) => {
+        if (stride === 1) {
+            const count = playhead - oldest + 1;
+            const index = gen - oldest;
+            let y = index - count - frac;
+            let scaleY = 1;
+            if (gen === playhead) {
+                scaleY = Math.max(frac, 0.02);
+                y += scaleY / 2 - 0.5;
+            } else if (count >= MAX_TRAIL_LENGTH && gen === oldest) {
+                scaleY = Math.max(1 - frac, 0.02);
+                y += frac / 2;
+            }
+            mesh.position.y = y;
+            mesh.scale.y = scaleY;
             return;
         }
+        const scaleY = gen === playhead ? Math.max(frac, 0.05) * stride : stride;
+        mesh.scale.y = scaleY;
+        mesh.position.y = (gen - playhead) - frac;
+        if (gen === playhead) mesh.position.y += scaleY / 2 - stride / 2;
+    };
 
-        const distanceDelta = timeDelta / MS_PER_GEN
-        const newLayers = Math.floor(distanceDelta + offset);
-        offset = (distanceDelta + offset) % 1;
+    const publish = (force: boolean) => {
+        const shown = Math.floor(displayTime);
+        if (!force && shown === lastEmit) return;
+        lastEmit = shown;
+        state.displayTime = displayTime;
+        state.baseGen = base;
+        state.latestGen = latest();
+        const visible = history[Math.max(0, Math.min(history.length - 1, Math.floor(displayTime) - base))];
+        state.population = visible ? population(visible) : 0;
+        state.loading = false;
+        emit();
+    };
 
-        if (newLayers > 0) {
-            // reset top grid to be full height
-            layers[layers.length - 1].scale.y = 1
+    const reset = () => {
+        clearMeshes();
+        const universe = loadPreset(state.preset);
+        history = [universe];
+        base = 0;
+        displayTime = 0.85;
+        retain(history);
+        framePattern(bounds(universe));
+        publish(true);
+    };
 
-            for (let i = 0; i < newLayers; ++i) {
-                state.live = nextGeneration(state.live);
-                const layer = makeLayer(state.live)
-                layers.push(layer);
-                scene.add(layer);
-            }
+    const resize = () => {
+        const nextWidth = window.innerWidth;
+        const nextHeight = window.innerHeight;
+        const nextAspect = nextWidth / nextHeight;
+        camera.left = -nextAspect * 5;
+        camera.right = nextAspect * 5;
+        camera.top = 5;
+        camera.bottom = -5;
+        camera.updateProjectionMatrix();
+        renderer.setSize(nextWidth, nextHeight);
+    };
+    window.addEventListener('resize', resize);
 
-            while (layers.length > MAX_TRAIL_LENGTH) {
-                const bottomGrid = layers.shift();
-                if (bottomGrid) disposeLayer(bottomGrid);
-            }
+    let lastTime = performance.now();
+    const animate = () => {
+        if (!running) return;
+        const now = performance.now();
+        const timeDelta = now - lastTime;
+        lastTime = now;
+
+        if (state.resetToken !== seenReset) {
+            seenReset = state.resetToken;
+            reset();
         }
 
-        layers.forEach((layer, index) => {
-            layer.position.y = index - layers.length - offset;
-        })
-
-        layers[layers.length - 1].scale.y = offset
-        layers[layers.length - 1].position.y += offset / 2 - 0.5
-
-        if (layers.length === MAX_TRAIL_LENGTH) {
-            layers[0].scale.y = 1 - offset
-            layers[0].position.y += offset / 2
+        if (state.scrubbing && state.scrubTo !== null) {
+            const target = Math.max(base, Math.min(latest(), state.scrubTo));
+            displayTime = target + 0.999;
+        } else if (!state.paused && !state.inactive) {
+            displayTime += (timeDelta / 1000) * state.speed;
+            let steps = 0;
+            while (latest() < Math.floor(displayTime) && steps < 4) {
+                history.push(nextGeneration(history[history.length - 1]));
+                while (history.length > MAX_HISTORY) {
+                    disposeMesh(base);
+                    history.shift();
+                    base++;
+                }
+                retain(history);
+                steps++;
+            }
+            if (displayTime > latest() + 0.999) displayTime = latest() + 0.999;
         }
 
+        controls.update();
+        const pixels = Math.max(1, renderer.domElement.clientWidth);
+        const rawPixel = (camera.right - camera.left) / (camera.zoom * pixels);
+        const coarse = rawPixel >= 1.25;
+        const minSize = coarse ? 2 ** Math.round(Math.log2(rawPixel)) : 1;
+        const stride = coarse ? Math.max(1, Math.round(rawPixel)) : 1;
+        const playhead = Math.max(base, Math.min(latest(), Math.floor(displayTime)));
+        const frac = displayTime - Math.floor(displayTime);
+        const oldest = Math.max(base, playhead - MAX_TRAIL_LENGTH + 1);
+        const wanted: number[] = [];
+        for (let gen = playhead; gen >= oldest; gen -= stride) wanted.push(gen);
+        const wantedSet = new Set(wanted);
+
+        let builds = 0;
+        for (const gen of wanted) {
+            const cached = meshes.get(gen);
+            if (cached && cached.minSize === minSize) continue;
+            if (builds >= BUILDS_PER_FRAME) break;
+            const universe = history[gen - base];
+            if (!universe) continue;
+            builds++;
+            if (cached) disposeMesh(gen);
+            const mesh = buildLayer(universe, minSize);
+            if (!mesh) continue;
+            scene.add(mesh);
+            meshes.set(gen, {mesh, minSize});
+        }
+
+        for (const [gen, cached] of meshes) {
+            if (!wantedSet.has(gen) || cached.minSize !== minSize) cached.mesh.removeFromParent();
+        }
+        for (const gen of wanted) {
+            const cached = meshes.get(gen);
+            if (!cached || cached.minSize !== minSize) continue;
+            if (cached.mesh.parent !== scene) scene.add(cached.mesh);
+            placeLayer(cached.mesh, gen, playhead, oldest, frac, stride);
+        }
+        for (const gen of [...meshes.keys()]) {
+            if (gen < playhead - MAX_TRAIL_LENGTH - 8 || gen < base) disposeMesh(gen);
+        }
+
+        publish(false);
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
     };
-    animate();
-}
+    requestAnimationFrame(animate);
+
+    return () => {
+        running = false;
+        window.removeEventListener('resize', resize);
+        clearMeshes();
+        controls.dispose();
+        renderer.dispose();
+        renderer.domElement.remove();
+    };
+};
 
 export default animateScene;

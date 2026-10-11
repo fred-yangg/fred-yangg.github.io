@@ -1,21 +1,31 @@
-import { useEffect } from 'react';
+import {useEffect} from 'react';
+import {Controls} from './controls';
 import Scene from './scene';
-import state from './state';
+import state, {emit} from './state';
 
 export const App = () => {
     useEffect(() => {
-        window.addEventListener('keyup', (event) => {
-            console.log(event)
-            if (event.key === ' ') {
-                state.paused = !state.paused;
-            }
-        });
-
-        window.addEventListener('visibilitychange', () => {
-            state.lastTime = performance.now();
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key !== ' ' || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+            event.preventDefault();
+            state.paused = !state.paused;
+            emit();
+        };
+        const onHide = () => {
             state.inactive = document.hidden;
-        })
-    });
+        };
+        window.addEventListener('keyup', onKey);
+        window.addEventListener('visibilitychange', onHide);
+        return () => {
+            window.removeEventListener('keyup', onKey);
+            window.removeEventListener('visibilitychange', onHide);
+        };
+    }, []);
 
-    return <Scene/>;
+    return (
+        <div className="relative h-screen w-screen overflow-hidden">
+            <Scene/>
+            <Controls/>
+        </div>
+    );
 };
