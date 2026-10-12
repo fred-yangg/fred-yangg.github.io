@@ -16,7 +16,7 @@ export function wrapHour(hour: number) {
 export function formatDigitalTime(hour: number) {
     const wrapped = wrapHour(hour)
     const totalMinutes = wrapped * 60
-    const h = Math.floor(totalMinutes / 60) % 12 || 12
+    const h = Math.floor(totalMinutes / 60) % 12
     const m = Math.floor(totalMinutes % 60)
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
