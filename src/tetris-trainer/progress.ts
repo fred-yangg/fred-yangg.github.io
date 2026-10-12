@@ -45,8 +45,17 @@ export function restore(saved: unknown): Progress {
     // DPC wasn't split yet.
     const seen = new Set(Array.isArray(raw.seen) ? raw.seen : leaves().filter(path => !path.startsWith('height/')).map(splitFrom))
     const was = new Set(Array.isArray(raw.enabled) ? raw.enabled : [])
-    // New leaves start on, or as the leaf they were split from was.
-    const added = leaves().filter(path => !seen.has(path) && (!seen.has(splitFrom(path)) || was.has(splitFrom(path))))
+    // New leaves start on, unless they replace leaves that are gone: the leaf
+    // they were split from, leaves merged into them, or old leaves under the
+    // same parent, like 'ms2/bag2/standard' replacing 'ms2/bag2/a'. Then
+    // they're on if any of those was.
+    const gone = [...seen].filter(old => !known.has(old))
+    const added = leaves().filter(path => {
+        if (seen.has(path)) return false
+        const parent = path.slice(0, path.lastIndexOf('/'))
+        const replaced = gone.filter(old => old === splitFrom(path) || old === parent || old.startsWith(`${path}/`) || old.startsWith(`${parent}/`))
+        return !replaced.length || replaced.some(old => was.has(old))
+    })
     return {
         enabled: Array.isArray(raw.enabled) ? [...raw.enabled.filter(path => known.has(path)), ...added] : leaves(),
         seen: leaves(),

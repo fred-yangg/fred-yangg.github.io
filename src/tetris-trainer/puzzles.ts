@@ -12,6 +12,8 @@ export type Step = 'tss' | 'tsd' | 'tst' | 'pc' | 'build' | 'clean'
 //   or the column its middle cell has to lock in: 'tsd@col4'.
 // targets: for 'build', a key into the bank's targets. Any of them counts.
 // target: the board the reference solution builds, to show the player.
+// setups: when any of several setups counts, the ones this queue could build.
+//   The player picks one, so there's no target to show.
 // after: for 'clean', the ideal boards to finish on. The T-spin alone isn't
 //   enough: the board it leaves has to be one of these.
 // note: for technique puzzles, what the ideal finish teaches, or why the
@@ -28,6 +30,7 @@ export type Puzzle = {
     hold: string
     targets?: string
     target?: string
+    setups?: string[]
     after?: string[]
     source?: string
     note?: string
@@ -76,9 +79,17 @@ export function goalTitle(puzzle: Puzzle): string {
 }
 
 export function goalText(puzzle: Puzzle): string {
-    const text = stepsOf(puzzle).map(step => STEP_TEXT[step]).join(', then ')
+    const text = stepsOf(puzzle).map(step => step === 'build' && puzzle.setups ? 'build whichever setup the queue allows' : STEP_TEXT[step]).join(', then ')
     const spot = puzzle.goal.includes('@col') ? ' The T has to go in the well.' : pinned(puzzle) ? ' The T has to go in the setup’s own slot.' : ''
     return `${text[0].toUpperCase()}${text.slice(1)}.${spot}`
+}
+
+// Which setups the queue could build, for puzzles with a choice of them.
+export function setupsText(puzzle: Puzzle): string | null {
+    const names = puzzle.setups
+    if (!names?.length) return null
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
+    return `This queue could build ${list}.`
 }
 
 export function pieces(text: string): Piece[] {

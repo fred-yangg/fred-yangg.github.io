@@ -10,6 +10,7 @@ import * as part5 from './bank/dpc-extra-sz.ts'
 import * as part6 from './bank/dpc-extra-jl.ts'
 import * as part7 from './bank/dpc-extra-t.ts'
 import * as part8 from './bank/sdpc.ts'
+import * as part26 from './bank/sdpc-stickspin.ts'
 import * as part9 from './bank/ms2.ts'
 import * as part10 from './bank/tsd-kaidan.ts'
 import * as part11 from './bank/tsd-donation.ts'
@@ -28,7 +29,7 @@ import * as part23 from './bank/tsd-general-b.ts'
 import * as part24 from './bank/tst-general.ts'
 import * as part25 from './bank/tss-general.ts'
 
-const PARTS = [part1, part2, part3, part4, part5, part6, part7, part8, part9, part10, part11, part12, part13, part14, part15, part16, part17, part18, part19, part20, part21, part22, part23, part24, part25]
+const PARTS = [part1, part2, part3, part4, part5, part6, part7, part8, part26, part9, part10, part11, part12, part13, part14, part15, part16, part17, part18, part19, part20, part21, part22, part23, part24, part25]
 
 export const TARGETS: Record<string, string[]> = Object.assign({}, ...PARTS.map(part => part.TARGETS))
 

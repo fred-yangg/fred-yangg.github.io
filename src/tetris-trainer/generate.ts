@@ -280,6 +280,7 @@ type Made = {
     queue: Piece[]
     hold: Piece | null
     targets?: string
+    setups?: string[]
     after?: string[]
     source?: string
     note?: string
@@ -423,55 +424,144 @@ function dpc({name, random, targets, fill, log}: Bench) {
     }
 }
 
+// A setup drawn on its base in gray, with the base's colors put back. Both
+// are bottom-aligned, so cells line up.
+function colored(diagram: Diagram): Field {
+    const field = fieldOf(diagram.board)
+    for (const [cell, color] of fieldOf(diagram.base!).colors) field.colors.set(cell, color)
+    return field
+}
+
 // Single Double PC: bag 1 builds a TSS, bag 2 a TSD, and bag 3 clears. Each
-// stage uses its whole bag, so the next one starts on a fresh bag.
-function sdpc({random, targets, fill, log}: Bench) {
+// stage uses its whole bag, so the next one starts on a fresh bag. Bag 3 is
+// split by whether its T can spin a TSS on the way to the perfect clear.
+function sdpc({random, targets, fill, goalFor, log}: Bench) {
     for (const flip of [false, true]) {
         const turn = (text: string) => flip ? mirror(text) : text
         const tss = group('sdpc-tss')[0]
         const tsd = group('sdpc-tsd')[0]
         const pc = group('sdpc-pc')[0]
         targets['sdpc-tss'] = withMirrors([tss.board])
-        // The TSD diagram draws the TSS residue in gray. Put its colors back.
-        // Both are bottom-aligned, so cells line up.
-        const setup = fieldOf(tsd.board)
-        for (const [cell, color] of fieldOf(tsd.base!).colors) setup.colors.set(cell, color)
-        targets['sdpc-tsd'] = withMirrors([encode(setup)])
+        targets['sdpc-tsd'] = withMirrors([encode(colored(tsd))])
         // Each spin has to leave the residue the next bag builds on.
         const tssAfter = withMirrors([tsd.base!])
         const tsdAfter = withMirrors([pc.board])
+        const field = fieldOf(turn(pc.board))
         log(`tss ${fill(8, 100, () => ({category: 'sdpc/tss', goal: 'build tss clean', field: emptyField(), queue: bag(random), hold: null, targets: 'sdpc-tss', after: tssAfter, source: tss.source, before: fresh}))}`)
         log(`tsd ${fill(8, 100, () => ({category: 'sdpc/tsd', goal: 'build tsd clean', field: fieldOf(turn(tsd.base!)), queue: bag(random), hold: null, targets: 'sdpc-tsd', after: tsdAfter, source: tsd.source, before: fresh}))}`)
-        log(`pc ${fill(8, 100, () => ({category: 'sdpc/pc', goal: 'pc', field: fieldOf(turn(pc.board)), queue: bag(random), hold: null, source: pc.source, before: fresh}))}`)
+        log(`pc/tss ${fill(8, 300, () => ({category: 'sdpc/pc/tss', goal: 'tss pc', field, queue: bag(random), hold: null, source: pc.source, before: fresh}))}`)
+        log(`pc/plain ${fill(8, 300, () => {
+            const queue = bag(random)
+            if (solvable(goalFor('tss pc'), turnFrom(field.rows, queue, null))) return null
+            return {category: 'sdpc/pc/plain', goal: 'pc', field, queue, hold: null, source: pc.source, before: fresh}
+        })}`)
+    }
+}
+
+// The ways the rest of a bag finishes the Stickspin TD after its S and Z:
+// the rows the TST clears full but for the T, no holes outside the T's
+// columns, and a TSD slot left once the TST clears. Each with the board the
+// TST leaves.
+function tdFills(td: Diagram): {board: string; after: string}[] {
+    const spin = td.spins![0].split('.').map(Number)
+    const slot = spin.reduce((mask, cell) => mask | 1 << cell % WIDTH, 0)
+    const lines = [...new Set(spin.map(cell => Math.floor(cell / WIDTH)))]
+    const template = colored(td)
+    const top = HEIGHT - td.board.split('/').length - 2
+    const rest = PIECES.filter(piece => piece !== 'T' && !piecesIn(td.board).includes(piece))
+    const out = new Map<string, string>()
+    const seen = new Set<string>()
+    const grow = (field: Field, left: Piece[]) => {
+        const key = `${encode(field)} ${left.join('')}`
+        if (seen.has(key)) return
+        seen.add(key)
+        for (const piece of new Set(left)) {
+            for (const spot of placements(field.rows, piece, TUCK)) {
+                if (cellsOf(piece, spot.rot, spot.x, spot.y).some(cell => cell < top * WIDTH)) continue
+                grow(place(field, spot).field, left.filter((_, i) => i !== left.indexOf(piece)))
+            }
+        }
+        if (left.length) return
+        if (lines.some(y => popcount(field.rows[y]) !== WIDTH - spin.filter(cell => Math.floor(cell / WIDTH) === y).length)) return
+        if (holes(field.rows.map(row => row | slot))) return
+        const tst = placements(field.rows, 'T', TUCK).find(spot => spot.spin === 'full' && cellsOf('T', spot.rot, spot.x, spot.y).join('.') === td.spins![0])
+        const after = tst && place(field, tst).field
+        if (after && spinSpot(after.rows, 2)) out.set(encode(field), encode(after))
+    }
+    grow(template, rest)
+    return [...out].map(([board, after]) => ({board, after}))
+}
+
+// Stickspin: bag 1 builds what SDPC's does but spins the TSS the other way,
+// bag 2 builds a TSD, and bag 3 builds a TD: a TST, then a TSD with bag 4's
+// T. Bag 3 places the S and Z as the page shows, fills in around them and
+// spins the TST. That leaves the TSD slot ready, so bag 4 isn't dealt.
+function stickspin({random, targets, fill, log}: Bench) {
+    const tss = group('stickspin-tss')[0]
+    const tsd = group('stickspin-tsd')[0]
+    const td = group('stickspin-td')[0]
+    targets['stickspin-tss'] = withMirrors([tss.board])
+    targets['stickspin-tsd'] = withMirrors([encode(colored(tsd))])
+    const fills = tdFills(td)
+    targets['stickspin-td'] = withMirrors(fills.map(item => item.board))
+    const tstAfter = withMirrors(fills.map(item => item.after))
+    log(`${fills.length} ways to fill the TD`)
+    for (const flip of [false, true]) {
+        const turn = (text: string) => flip ? mirror(text) : text
+        log(`tss ${fill(8, 100, () => ({category: 'sdpc/stickspin/tss', goal: 'build tss clean', field: emptyField(), queue: bag(random), hold: null, targets: 'stickspin-tss', after: withMirrors([tsd.base!]), source: tss.source, before: fresh}))}`)
+        log(`tsd ${fill(8, 100, () => ({category: 'sdpc/stickspin/tsd', goal: 'build tsd clean', field: fieldOf(turn(tsd.base!)), queue: bag(random), hold: null, targets: 'stickspin-tsd', after: withMirrors([td.base!]), source: tsd.source, before: fresh}))}`)
+        log(`td ${fill(8, 100, () => ({category: 'sdpc/stickspin/td', goal: 'build tst clean', field: fieldOf(turn(td.base!)), queue: bag(random), hold: null, targets: 'stickspin-td', after: tstAfter, source: td.source, note: 'The next bag’s T spins a TSD in the slot the TST leaves, which finishes the TD.', before: fresh}))}`)
     }
 }
 
 // Mountainous Stacking 2: bag 1 builds the opener with the L held. Bag 2
-// builds one of the setups and spins a TST in the marked spot, leaving the
-// board bag 3 needs. Bag 3 does a TSD and a perfect clear.
+// builds whichever setup its queue allows and spins a TST in the setup's
+// slot, leaving the board bag 3 needs. Bag 3 does a TSD and a perfect clear.
+// Bag 2 starts from each way bag 1 can build the opener.
 function ms2({random, targets, fill, log}: Bench) {
-    const opener = group('ms2-opener')[0]
+    const openers = group('ms2-opener')
+    const opener = openers[0]
     targets.ms2 = withMirrors([opener.board])
     log(`bag1 ${fill(16, 100, () => ({category: 'ms2/bag1', goal: 'build', field: emptyField(), queue: bag(random), hold: null, targets: 'ms2', source: opener.source, before: fresh}))}`)
-    for (const setup of group('ms2-setup')) {
-        const id = setup.path.split('/')[2]
-        for (const flip of [false, true]) {
-            const turn = (text: string) => flip ? mirror(text) : text
-            const pin = flip ? mirrorCells(setup.spins![0]) : setup.spins![0]
+    const setups = group('ms2-setup')
+    // Every setup spins in the same slot, so one goal takes any of them.
+    if (new Set(setups.map(setup => setup.spins![0])).size > 1) throw new Error('MS2 setups spin in different slots')
+    for (const flip of [false, true]) {
+        const turn = (text: string) => flip ? mirror(text) : text
+        const pin = flip ? mirrorCells(setups[0].spins![0]) : setups[0].spins![0]
+        const goal = `build tst@${pin} clean`
+        const ways = setups.map(setup => {
             const board = turn(setup.board)
-            const key = `ms2-${id}-${flip ? 'm' : 'r'}`
-            targets[key] = [board]
-            const rows = rowsOf(boardOf(board))
-            const spot = placements(rows, 'T', TUCK).find(item => cellsOf('T', item.rot, item.x, item.y).join('.') === pin)!
-            const residue = place(fieldOf(board), spot).field
-            const after = [encode(residue)]
-            log(`bag2 ${id}${flip ? ' mirrored' : ''} ${fill(4, 200, () => {
-                const state = dealt(emptyField(), turn(opener.board), [...bag(random), ...bag(random)], null, 0)
-                return state && {category: `ms2/bag2/${id}`, goal: `build tst@${pin} clean`, ...state, targets: key, after, source: setup.source}
-            })}`)
+            const spot = placements(rowsOf(boardOf(board)), 'T', TUCK).find(item => cellsOf('T', item.rot, item.x, item.y).join('.') === pin)!
+            const residue = encode(place(fieldOf(board), spot).field)
             // A piece the setup kept in hold goes into bag 3.
             const held = (setup.extra ? (flip ? SWAP[setup.extra] ?? setup.extra : setup.extra) : null) as Piece | null
-            log(`bag3 ${id}${flip ? ' mirrored' : ''} ${fill(3, 100, () => ({category: 'ms2/bag3', goal: 'tsd pc', field: residue, queue: bag(random), hold: held, source: setup.source, before: {hold: held, bag: 0, pieces: []}}))}`)
+            return {setup, board, residue, held, alone: goalOf({id: '', category: '', goal, board: '', queue: '', hold: '', targets: 'one', after: [residue]}, {one: [board]})}
+        })
+        const key = `ms2-${flip ? 'm' : 'r'}`
+        targets[key] = ways.map(way => way.board)
+        const after = ways.map(way => way.residue)
+        for (const [i, built] of openers.entries()) {
+            const field = fieldOf(turn(built.board))
+            const unflipped = fieldOf(built.board)
+            const swap = (piece: Piece) => (flip ? SWAP[piece] ?? piece : piece) as Piece
+            const held = swap(built.extra as Piece)
+            log(`${built.path}${flip ? ' mirrored' : ''} ${fill([10, 6, 4][i] ?? 4, 300, () => {
+                // Bag 1 in an order that builds this, holding the piece left
+                // out. Builds fill the lowest cell on the left first, which
+                // some mirrored openers can't do, so the order is mirrored.
+                const history = build(random, emptyField(), unflipped.rows, unflipped.colors)
+                if (!history) return null
+                const placed = history.slice(0, -1).map(item => swap(item.piece))
+                placed.splice(Math.floor(random() * 7), 0, held)
+                const queue = bag(random)
+                const could = ways.filter(way => solvable(way.alone, turnFrom(field.rows, queue, held))).map(way => way.setup.name!)
+                if (!could.length) return null
+                return {category: built.path, goal, field, queue, hold: held, targets: key, setups: could, after, source: built.source, before: {hold: null, bag: 0, pieces: placed}}
+            })}`)
+        }
+        for (const way of ways) {
+            log(`bag3 ${way.setup.name}${flip ? ' mirrored' : ''} ${fill(3, 100, () => ({category: 'ms2/bag3', goal: 'tsd pc', field: fieldOf(way.residue), queue: bag(random), hold: way.held, source: way.setup.source, before: {hold: way.held, bag: 0, pieces: []}}))}`)
         }
     }
 }
@@ -524,6 +614,7 @@ export const PARTS: Part[] = [
     {name: 'dpc/extra-jl', block: 6, make: dpc},
     {name: 'dpc/extra-t', block: 7, make: dpc},
     {name: 'sdpc', block: 8, make: sdpc},
+    {name: 'sdpc/stickspin', block: 26, make: stickspin},
     {name: 'ms2', block: 9, make: ms2},
     {name: 'tsd/kaidan', block: 10, make: technique('tsd/kaidan')},
     {name: 'tsd/donation', block: 11, make: technique('tsd/donation')},
@@ -559,9 +650,11 @@ export function makePart(name: string, log: (text: string) => void): string {
             queue: item.queue.join(''),
             hold: item.hold ?? '',
         }
-        // The board the build's reference solution makes, to show the player.
-        if (item.targets) {
-            puzzle.targets = item.targets
+        if (item.setups) puzzle.setups = item.setups
+        // The board the build's reference solution makes, to show the player,
+        // unless picking the setup is the puzzle.
+        if (item.targets) puzzle.targets = item.targets
+        if (item.targets && !item.setups) {
             const steps = createSolver(made.goalFor(item.goal, item.targets, item.after), TUCK).solve(turnFrom(item.field.rows, item.queue, item.hold))!
             let field = item.field
             for (const step of steps) {

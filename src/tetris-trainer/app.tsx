@@ -36,7 +36,7 @@ import {cells} from './pieces.ts'
 import {PUZZLES, TARGETS} from './bank.ts'
 import {trail} from './categories.ts'
 import {choose, loadProgress, record, saveProgress, type Progress} from './progress.ts'
-import {goalOf, goalText, goalTitle, setupOf, stepsOf, STEP_NAME, STEP_SHORT, type Puzzle} from './puzzles.ts'
+import {goalOf, goalText, goalTitle, setupOf, setupsText, stepsOf, STEP_NAME, STEP_SHORT, type Puzzle} from './puzzles.ts'
 import {actionFor, keyLabel, loadSettings, saveSettings, ACTIONS, type Action, type Settings} from './settings.ts'
 import {createChecker, type Checker} from './checker.ts'
 import {pathTo, progress as advance, rowsOf, WASTED, type Goal, type Move, type Options, type Step, type Turn} from './solver.ts'
@@ -70,6 +70,8 @@ type Session = {
     messy: boolean
     // A T was placed without the T-spin.
     wasted: boolean
+    // None of the setups the puzzle offers can be built anymore.
+    unbuildable: boolean
     // A hint or solution search gave up before finding one.
     stumped: boolean
 }
@@ -217,6 +219,7 @@ export function App() {
             thinking: false,
             messy: false,
             wasted: false,
+            unbuildable: false,
             stumped: false,
         }
         checkerRef.current?.reset()
@@ -331,6 +334,7 @@ export function App() {
             current.missed = true
             current.messy = stepsOf(current.puzzle)[stageOf(current, live)] === 'clean'
             current.wasted = stageOf(current, live) === WASTED
+            current.unbuildable = !!current.puzzle.setups && stageOf(current, live) === 0
             current.wrong = placedCells
             effects.shake = Date.now()
             refresh()
@@ -497,6 +501,7 @@ export function App() {
             if (action === 'rotateCCW') pressRotate(input, live, handling, -1)
             if (action === 'rotate180') pressRotate(input, live, handling, 2)
             if (action === 'hold') pressHold(input, live, handling)
+            if (action === 'softerDrop') softStep(live)
         }
         refresh()
     }
@@ -789,10 +794,14 @@ function introOf(puzzle: Puzzle): {text: string; detail: string; note: string} {
             : {text: labels[1], detail: goalTitle(puzzle), note}
     }
     if (top === 'height') return {text: 'Height difference', detail: `${labels[1]} · ${goalTitle(puzzle)}`, note}
-    if (top === 'sdpc') return {text: `SDPC · ${labels[1].split(':')[0]}`, detail: goalTitle(puzzle), note}
+    if (top === 'sdpc') {
+        return sub === 'stickspin'
+            ? {text: `Stickspin · ${labels[2].split(':')[0]}`, detail: goalTitle(puzzle), note}
+            : {text: `SDPC · ${labels[1].split(':')[0]}`, detail: goalTitle(puzzle), note}
+    }
     if (top === 'ms2') {
         if (sub === 'bag1') return {text: 'MS2', detail: 'Build the opener', note}
-        if (sub === 'bag2') return {text: `MS2 · ${labels[2]}`, detail: goalTitle(puzzle), note}
+        if (sub === 'bag2') return {text: 'MS2 · Bag 2', detail: `${labels[2]} · ${goalTitle(puzzle)}`, note}
         return {text: 'MS2 · Bag 3', detail: goalTitle(puzzle), note}
     }
     const build = top === 'pco' && sub === 'pc1' ? 'Build the opener' : 'Build the setup'
@@ -866,7 +875,9 @@ function StatusPanel({session, placed, left, compact, actions}: {session: Sessio
         title = 'Not quite'
         text = session.wasted
             ? 'That T doesn’t spin, so it’s wasted. Take it back and save it for the T-spin.'
-            : session.messy
+            : session.unbuildable
+                ? `None of the setups can be built from here. ${setupsText(session.puzzle)}`
+                : session.messy
                 ? 'That spin works, but it doesn’t leave the ideal board. Take it back and find a cleaner way.'
                 : 'That piece leaves no way to finish. Take it back and try again.'
         color = 'text-red-300'
@@ -905,8 +916,8 @@ function StatusPanel({session, placed, left, compact, actions}: {session: Sessio
                 <p key={title} className={`m-0 font-semibold ${compact ? 'text-base' : 'text-lg'} ${color}`} style={{animation: 'tt-rise 200ms ease-out'}}>{title}</p>
                 <p className={`m-0 text-sm leading-snug text-white/55 ${compact ? 'truncate' : 'mt-1'}`}>{text}</p>
             </div>
-            {(status === 'solved' || status === 'showing') && session.puzzle.note && (
-                <p className="m-0 mt-2 text-sm leading-snug text-white/75" style={{animation: 'tt-rise 200ms ease-out'}}>{session.puzzle.note}</p>
+            {(status === 'solved' || status === 'showing') && (session.puzzle.note ?? setupsText(session.puzzle)) && (
+                <p className="m-0 mt-2 text-sm leading-snug text-white/75" style={{animation: 'tt-rise 200ms ease-out'}}>{session.puzzle.note ?? setupsText(session.puzzle)}</p>
             )}
             <div className={`flex flex-wrap gap-2 ${compact ? 'mt-2.5' : 'mt-4'}`}>
                 {status === 'wrong' && <PanelButton primary onClick={actions.takeBack}>Take back</PanelButton>}

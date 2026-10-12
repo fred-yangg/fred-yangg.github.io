@@ -5,22 +5,28 @@
 // board: the finished setup, in the puzzle board format (rows top first,
 //   joined by '/', '.' empty, piece letters, 'G' garbage).
 // base: what the setup is built on, when that isn't an empty field.
+//   For the Stickspin TD, the board bag 3 starts from, and board is the S and
+//   Z the page places on it before the rest of the bag fills in.
 // extra: for DPC, the piece left over from the previous perfect clear. For
-//   MS2 bag 2 setups, a piece kept in hold for bag 3.
+//   MS2 openers, the piece bag 1 leaves in hold. For MS2 bag 2 setups, a
+//   piece kept in hold for bag 3.
 // order: for DPC, the order the next bag has to deal some pieces in for the
 //   setup, as pairs like 'J<O' (J before O). The page groups setups by it.
 // mirrored: for DPC, the mirror image is used too, with the order mirrored.
+// name: for MS2 setups, what the trainer calls it.
 // spins: for mid-game methods, the cells each T has to lock in, in order.
 //   These are the spins that make it that method, so any other T-spin fails.
+//   For the Stickspin TD, where its TST goes.
 
 export type Diagram = {
-    kind: 'pco' | 'pc2' | 'dpc' | 'sdpc-tss' | 'sdpc-tsd' | 'sdpc-pc' | 'method' | 'ms2-opener' | 'ms2-setup'
+    kind: 'pco' | 'pc2' | 'dpc' | 'sdpc-tss' | 'sdpc-tsd' | 'sdpc-pc' | 'stickspin-tss' | 'stickspin-tsd' | 'stickspin-td' | 'method' | 'ms2-opener' | 'ms2-setup'
     path: string
     board: string
     base?: string
     extra?: string
     order?: string
     mirrored?: boolean
+    name?: string
     goal?: string
     spins?: string[]
     source: string
@@ -105,6 +111,9 @@ export const DIAGRAMS: Diagram[] = [
     {kind: 'sdpc-tss', path: 'sdpc/tss', board: '.Z......../ZZ.......I/Z......LLI/OO.SSJJJLI/OOSS...JLI', source: 'https://four.lol/openers/sd-pc#tss'},
     {kind: 'sdpc-tsd', path: 'sdpc/tsd', base: '.Z......../ZZ.......I/ZTTT...LLI/OOSS...JLI', board: 'I........./IOO......./IOOZ...JJJ/IGZZ....LJ/GGZ...LLLG/GGGG.SSGGG/GGGGSS.GGG', source: 'https://four.lol/openers/sd-pc#tsd'},
     {kind: 'sdpc-pc', path: 'sdpc/pc', board: 'I........./IOO......./IOOZ...JJJ/IGZZ....LJ/GGGGSS.GGG', source: 'https://four.lol/openers/sd-pc#pc'},
+    {kind: 'stickspin-tss', path: 'sdpc/stickspin/tss', board: '.Z......../ZZ.......I/Z......LLI/OO.SSJJJLI/OOSS...JLI', source: 'https://four.lol/openers/sd-pc#tss-2'},
+    {kind: 'stickspin-tsd', path: 'sdpc/stickspin/tsd', base: '.Z......../ZZT......I/ZTT....LLI/OOSS...JLI', board: 'I........./IOO......./IOO......Z/IG...JJJZZ/GGG.SLLJZG/GGG.SSLGGG/GGGG.SLGGG', source: 'https://four.lol/openers/sd-pc#tsd-1'},
+    {kind: 'stickspin-td', path: 'sdpc/stickspin/td', base: 'I........./IOO......./IOO......Z/ZTT.SSLLLI/OOSS.SLJLI', board: '..SS....../GSS......./GGG.ZZ..../GGG..ZZ..G/GGG.GGGGGG/GGGG.GGGGG', spins: ['163.173.174.183'], source: 'https://four.lol/openers/sd-pc#td'},
     {kind: 'method', path: 'tsd/kaidan', goal: 'tsd', board: '...IIII.../GGGGGG...Z/GGGGGGG.ZZ/GGGGGGGGZ./GGGGGGGGG.', spins: ['166.167.168.177'], source: 'https://four.lol/methods/kaidan#'},
     {kind: 'method', path: 'tsd/kaidan', goal: 'tsd', board: '....LLL.../GGGGLG...Z/GGGGGGG.ZZ/GGGGGGGGZ./GGGGGGGGG.', spins: ['166.167.168.177'], source: 'https://four.lol/methods/kaidan#building-kaidan'},
     {kind: 'method', path: 'tsd/kaidan', goal: 'tsd', board: '.......GGG/IIII...GGG/GGG...ZGGG/GGGG.ZZGGG/GGGGGZ.GGG/GGGGGG.GGG', spins: ['163.164.165.174'], source: 'https://four.lol/methods/kaidan#building-kaidan'},
@@ -198,10 +207,15 @@ export const DIAGRAMS: Diagram[] = [
     {kind: 'method', path: 'tst/methods', goal: 'tst', board: '..LLGGGGGG/...LGGGGGG/ZZ.IGGGGGG/Z..IGGGGGG/LL.LGGGGGG', spins: ['172.181.182.192'], source: 'https://four.lol/methods/tspin-triple#infinite-tst'},
     {kind: 'method', path: 'tst/methods', goal: 'tst', board: 'JJ......../J........./J.ZZGGGGGG/L..ZZGGGGG/L.GGGGGGGG/LL.GGGGGGG', spins: ['161.171.172.181'], source: 'https://four.lol/methods/tspin-triple#infinite-tst'},
     {kind: 'method', path: 'tst/methods', goal: 'tst', board: '.Z......../ZZ......../Z........./I.LLGGGGGG/I..LGGGGGG/I.SLGGGGGG/I.SSGGGGGG/L..SGGGGGG/L.GGGGGGGG/LL.GGGGGGG', spins: ['131.141.142.151'], source: 'https://four.lol/methods/tspin-triple#infinite-tst'},
-    {kind: 'ms2-opener', path: 'ms2/bag1', board: 'IS......../ISS....T../IJS.ZZTTOO/IJJJ.ZZTOO', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
-    {kind: 'ms2-setup', path: 'ms2/bag2/a', board: 'LL.......I/LL.......I/LLJJ.....I/LLJ....SSI/ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
-    {kind: 'ms2-setup', path: 'ms2/bag2/b', board: 'IIII....../LLLL....../LLJJ....../LLJ....SS./ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
-    {kind: 'ms2-setup', path: 'ms2/bag2/c', board: 'JJOO....../JSOO..L..I/JSS...LLLI/ISS.ZZLLLI/ISS..ZZTLI/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
-    {kind: 'ms2-setup', path: 'ms2/bag2/d', board: '........SS/IIII..LSSL/JJJ...LLLL/ISJ.ZZLLOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
-    {kind: 'ms2-setup', path: 'ms2/bag2/bonus', board: 'LLLL....../LLJJ....../LLJ....SS./ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], extra: 'I', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    // The opener, and the other ways one bag fills its shape that still lead
+    // to a bag 2 setup. Holding S or Z never does. The path is the bag 2
+    // category it starts.
+    {kind: 'ms2-opener', path: 'ms2/bag2/standard', extra: 'L', board: 'IS......../ISS....T../IJS.ZZTTOO/IJJJ.ZZTOO', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-opener', path: 'ms2/bag2/flat-i', extra: 'J', board: 'LS......../LSS....T../LLS.ZZTTOO/IIII.ZZTOO', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-opener', path: 'ms2/bag2/o-held', extra: 'O', board: 'IS......../ISS....T../IJS.ZZTTTL/IJJJ.ZZLLL', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-setup', path: 'ms2/bag2/a', name: 'Setup A (early O)', board: 'LL.......I/LL.......I/LLJJ.....I/LLJ....SSI/ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-setup', path: 'ms2/bag2/b', name: 'Setup B (L before I or J)', board: 'IIII....../LLLL....../LLJJ....../LLJ....SS./ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-setup', path: 'ms2/bag2/c', name: 'Setup C', board: 'JJOO....../JSOO..L..I/JSS...LLLI/ISS.ZZLLLI/ISS..ZZTLI/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-setup', path: 'ms2/bag2/d', name: 'Setup D (OL or LI placed)', board: '........SS/IIII..LSSL/JJJ...LLLL/ISJ.ZZLLOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
+    {kind: 'ms2-setup', path: 'ms2/bag2/bonus', name: 'the bonus setup (I in hold)', board: 'LLLL....../LLJJ....../LLJ....SS./ISJ.ZZSSOO/ISS..ZZTOO/IJS.ZZTTOO/IJJJ.ZZTOO', spins: ['163.173.174.183'], extra: 'I', source: 'https://harddrop.com/wiki/Mountainous_Stacking#Mountainous_Stacking_2'},
 ]

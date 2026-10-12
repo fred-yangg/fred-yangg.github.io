@@ -181,6 +181,7 @@ export function unitTests() {
     assert(!normalized.binds.hardDrop.includes('KeyQ'), 'a key binds once')
     assert(normalized.binds.hold.includes('KeyH') && !normalized.binds.hint.includes('KeyH'), 'stored keys beat new defaults')
     assert(DEFAULT_SETTINGS.kick === 'SRS+', 'default kick')
+    assert(!DEFAULT_SETTINGS.binds.softerDrop.length && normalizeSettings({binds: {softerDrop: ['KeyS']}}).binds.softerDrop.join() === 'KeyS', 'softer drop has no default key')
 
     // T-spin goals need the exact line count. Any other T is wasted.
     const empty = new Uint16Array(HEIGHT)
@@ -212,9 +213,13 @@ export function unitTests() {
     }
     assert(choose(PUZZLES, {...start, enabled: []}) === null, 'nothing enabled')
 
-    // Saves pick up new leaves on, and split leaves as they were.
-    const old = ['tsd/general', 'dpc/extra-o/build', 'dpc/extra-o/finish', 'dpc/extra-i/build', 'dpc/extra-t/build']
-    const restored = new Set(restore({enabled: ['tsd/general', 'dpc/extra-o/build'], seen: old, results: [], streak: 0}).enabled)
+    // Saves pick up new leaves on, and split or merged leaves as they were.
+    const old = ['tsd/general', 'dpc/extra-o/build', 'dpc/extra-o/finish', 'dpc/extra-i/build', 'dpc/extra-t/build', 'ms2/bag2/a', 'ms2/bag2/b', 'sdpc/pc']
+    const restored = new Set(restore({enabled: ['tsd/general', 'dpc/extra-o/build', 'ms2/bag2/b', 'sdpc/pc'], seen: old, results: [], streak: 0}).enabled)
+    assert(restored.has('ms2/bag2/standard') && restored.has('ms2/bag2/o-held'), 'leaves replacing old ones are on if any of those was')
+    assert(restored.has('sdpc/pc/plain') && restored.has('sdpc/pc/tss') && restored.has('sdpc/stickspin/td'), 'leaves under an old leaf are on if it was')
+    const none = restore({enabled: [], seen: old, results: [], streak: 0}).enabled
+    assert(!none.includes('ms2/bag2/standard') && !none.includes('sdpc/pc/tss'), 'leaves replacing old ones are off if all of those were')
     assert(restored.has('dpc/extra-o/jo/build') && restored.has('dpc/extra-o/other/build'), 'split leaves keep an enabled leaf on')
     assert(!restored.has('dpc/extra-o/jo/finish') && !restored.has('dpc/extra-i/li/build'), 'split leaves keep a disabled leaf off')
     assert(!restored.has('dpc/extra-t/build') && restored.has('height/1') && restored.has('tsd/kaidan'), 'new leaves start on')
@@ -300,6 +305,7 @@ function checkPuzzle(puzzle: Puzzle) {
         const want = puzzle.category === 'tsd/fractal' || puzzle.category === 'tsd/stsd' ? 2 : 1
         assert(spins.length === want && pieces(puzzle.queue).filter(piece => piece === 'T').length >= want, 'a T per spin')
     }
+    if (puzzle.category.startsWith('ms2/bag2/')) assert(puzzle.setups?.length && !puzzle.target, 'setups to pick from, and no target')
     if (puzzle.category.startsWith('height/')) assert(spins.every(objective => objective.kind === 'tspin' && objective.column !== undefined), 'spin over the well')
     // A T-spin has to leave the ideal board, unless a perfect clear follows.
     if (spins.length && goal[goal.length - 1].kind !== 'pc') assert(goal[goal.length - 1].kind === 'shape', 'clean finish')

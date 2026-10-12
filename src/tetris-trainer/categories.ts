@@ -56,11 +56,9 @@ export const CATEGORIES: Category[] = [
                 id: 'bag2',
                 label: 'Bag 2: setup → TST',
                 children: [
-                    {id: 'a', label: 'Setup A (early O)'},
-                    {id: 'b', label: 'Setup B (L before I or J)'},
-                    {id: 'c', label: 'Setup C'},
-                    {id: 'd', label: 'Setup D (OL or LI placed)'},
-                    {id: 'bonus', label: 'Bonus (I in hold)'},
+                    {id: 'standard', label: 'Standard opener'},
+                    {id: 'flat-i', label: 'Flat I at the bottom'},
+                    {id: 'o-held', label: 'O held'},
                 ],
             },
             {id: 'bag3', label: 'Bag 3: TSD → PC'},
@@ -114,7 +112,23 @@ export const CATEGORIES: Category[] = [
         children: [
             {id: 'tss', label: 'Bag 1: build → TSS'},
             {id: 'tsd', label: 'Bag 2: build → TSD'},
-            {id: 'pc', label: 'Bag 3: perfect clear'},
+            {
+                id: 'pc',
+                label: 'Bag 3',
+                children: [
+                    {id: 'plain', label: 'Perfect clear'},
+                    {id: 'tss', label: 'TSS → PC'},
+                ],
+            },
+            {
+                id: 'stickspin',
+                label: 'Stickspin',
+                children: [
+                    {id: 'tss', label: 'Bag 1: build → TSS'},
+                    {id: 'tsd', label: 'Bag 2: build → TSD'},
+                    {id: 'td', label: 'Bag 3: build → TST'},
+                ],
+            },
         ],
     },
 ]
